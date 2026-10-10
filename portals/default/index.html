@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>Network Checkpoint</title>
+<style>
+  :root{
+    --bg:#0f141a; --panel:#161c24; --line:#2a3542;
+    --fg:#e8edf2; --muted:#8b97a5; --accent:#2dd4bf; --warn:#ffb86b;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;height:100%}
+  body{
+    background:var(--bg); color:var(--fg);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    display:flex; align-items:center; justify-content:center;
+    padding:24px; line-height:1.55;
+  }
+  .card{
+    width:100%; max-width:520px; background:var(--panel);
+    border:1px solid var(--line); border-radius:16px; padding:32px 28px;
+  }
+  .badge{
+    display:inline-flex; align-items:center; gap:8px; font-size:12px;
+    letter-spacing:.08em; text-transform:uppercase; color:var(--accent);
+    border:1px solid var(--line); border-radius:999px; padding:6px 12px; margin-bottom:20px;
+  }
+  .ring{position:relative; width:84px; height:84px; margin:4px 0 18px}
+  .ring svg{position:relative; z-index:1}
+  .ring::after{
+    content:""; position:absolute; inset:-6px; border-radius:50%;
+    border:2px solid var(--accent); opacity:.25; animation:pulse 2.4s ease-out infinite;
+  }
+  @keyframes pulse{0%{transform:scale(.9);opacity:.35}70%{opacity:0}100%{transform:scale(1.25);opacity:0}}
+  h1{font-size:23px; margin:0 0 10px; font-weight:600}
+  p{margin:0 0 14px; color:var(--fg)}
+  .muted{color:var(--muted); font-size:14px}
+  ul{margin:14px 0 0; padding-left:18px; color:var(--muted); font-size:14px}
+  li{margin:6px 0}
+  .divider{height:1px; background:var(--line); margin:22px 0}
+  button{
+    width:100%; border:0; border-radius:10px; padding:14px 16px;
+    background:var(--accent); color:#042f2a; font-size:16px; font-weight:600;
+    cursor:pointer;
+  }
+  button:active{transform:translateY(1px)}
+  .foot{margin-top:18px; font-size:12px; color:var(--muted); text-align:center}
+  .foot a{color:var(--accent); text-decoration:none}
+  #done{display:none; text-align:center}
+  #done .check{font-size:44px; color:var(--accent); margin-bottom:10px}
+</style>
+</head>
+<body>
+  <div class="card">
+    <div id="main">
+      <span class="badge">● Authorized security test</span>
+      <div class="ring">
+        <svg width="84" height="84" viewBox="0 0 24 24" fill="none" stroke="#2dd4bf" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M5 12.55a11 11 0 0 1 14 0"></path>
+          <path d="M1.42 9a16 16 0 0 1 21.16 0"></path>
+          <path d="M8.53 16.11a6 6 0 0 1 6.95 0"></path>
+          <line x1="12" y1="20" x2="12.01" y2="20"></line>
+        </svg>
+      </div>
+      <h1>You've reached a checkpoint, not the internet.</h1>
+      <p>This Wi-Fi network is part of an <strong>authorized security assessment</strong>.
+         Nothing you typed was requested, and this page does not ask for — or collect —
+         any passwords or personal information.</p>
+      <p class="muted">That's the whole point of the exercise: an unknown open network
+         can put a page like this in front of you the moment you connect.</p>
+      <ul>
+        <li>Don't enter passwords or card details on networks you don't fully trust.</li>
+        <li>Prefer your own hotspot or a VPN on public Wi-Fi.</li>
+        <li>A real login box on a "free Wi-Fi" splash is a classic phishing setup.</li>
+      </ul>
+      <div class="divider"></div>
+      <button id="ack" type="button">Got it — I understand</button>
+      <div class="foot">
+        Default awareness portal for
+        <a href="https://github.com/Anon0ne/marauder-v8-gui" target="_blank" rel="noopener">Marauder&nbsp;V8&nbsp;Control</a>
+      </div>
+    </div>
+
+    <div id="done">
+      <div class="check">✓</div>
+      <h1>Thanks for the good instinct.</h1>
+      <p class="muted">You can disconnect from this network now. Stay sharp out there.</p>
+      <div class="foot">
+        <a href="https://github.com/Anon0ne/marauder-v8-gui" target="_blank" rel="noopener">github.com/Anon0ne/marauder-v8-gui</a>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Purely client-side. No form, no network request, nothing captured.
+    document.getElementById('ack').addEventListener('click', function () {
+      document.getElementById('main').style.display = 'none';
+      document.getElementById('done').style.display = 'block';
+    });
+  </script>
+</body>
+</html>

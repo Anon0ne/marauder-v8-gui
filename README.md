@@ -73,6 +73,13 @@ python marauder.py send "list -a"   # one command
 python marauder_pcap.py summary capture.pcap
 ```
 
+## Captive portal
+
+[`portals/default/index.html`](portals/) is the default captive-portal page for
+the firmware's Evil Portal feature. It's an **awareness page, not a credential
+trap** — it collects nothing, and instead shows anyone who connects why trusting
+an unknown open network is risky. See [`portals/README.md`](portals/README.md).
+
 ## Firmware note
 
 The catalog was built from *this* device's live `help` output. If you flash a
