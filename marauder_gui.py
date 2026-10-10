@@ -1099,7 +1099,7 @@ class MarauderGUI(tk.Tk):
         win.transient(self)
         ttk.Label(win, text="Marauder V8 — Control", style="Title.TLabel").pack(
             anchor="w", padx=22, pady=(20, 2))
-        ttk.Label(win, text=f"Version {__version__} (beta)",
+        ttk.Label(win, text=f"Version {__version__}",
                   style="CardMuted.TLabel").pack(anchor="w", padx=22)
         ttk.Label(win, text=f"Made by {AUTHOR}", style="Card.TLabel").pack(
             anchor="w", padx=22, pady=(18, 0))
