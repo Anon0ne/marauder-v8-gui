@@ -13,7 +13,21 @@ A clean desktop GUI + CLI to drive an ESP32 Marauder (V8 fork) over USB serial.
 
 - **Windows (no Python needed):** grab `MarauderV8-Control.exe` from the
   [latest release](https://github.com/Anon0ne/marauder-v8-gui/releases/latest).
-- **From source:** see below.
+- **Linux / macOS:** the app is pure Python + Tkinter, so it runs from source —
+  download the release's *Source code* archive (or clone), then `./run.sh`
+  (installs deps on first run). A prebuilt Windows `.exe` can't be cross-built for
+  Linux; running from source is the supported path and works identically.
+- **From source (any OS):** see below.
+
+## Tools menu (v0.3)
+
+- **Live RF Dashboard** — stat tiles, per-channel bar chart, signal-sorted AP table,
+  2.4/5 GHz split, and a GPS readout. Populates live from Recon/Scan.
+- **Automated Survey** — passive recon loop that dedupes devices over time with
+  privacy controls (mask MACs / omit SSIDs) and JSON / CSV / KML export.
+- **AI Assistant (Ollama)** — optional local analysis; remembers context, can run
+  *passive* commands on request, and queues any transmitting command for your
+  one-click approval. It never selects targets or fires attacks on its own.
 
 ## Install & run
 

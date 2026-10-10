@@ -33,7 +33,7 @@ import datetime as _dt
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 
-__version__ = "0.2.0"
+__version__ = "0.3.0"
 AUTHOR = "Justin Funderburk"
 CONTACT = "justin@bizhostnc.com"
 
@@ -50,6 +50,7 @@ from marauder import Marauder, BAUD
 from marauder_commands import CATALOG
 import marauder_pcap
 import marauder_flash
+import marauder_ai
 
 
 # --------------------------------------------------------------------------
@@ -186,6 +187,7 @@ class MarauderGUI(tk.Tk):
         self._entries = {}    # id(spec) -> Entry, so pickers can clear placeholders
 
         self._build_style()
+        self._build_menu()
         self._build_toolbar()
         self._build_body()
         self._build_console()
@@ -247,6 +249,24 @@ class MarauderGUI(tk.Tk):
         s.configure("TMenubutton", background=p["panel2"], foreground=p["fg"],
                     arrowcolor=p["fg"], bordercolor=p["border"], padding=4)
         s.map("TMenubutton", background=[("active", p["border"])])
+
+    # ---- menu bar --------------------------------------------------------
+    def _build_menu(self):
+        bar = tk.Menu(self)
+        tools = tk.Menu(bar, tearoff=False, bg=PALETTE["panel2"], fg=PALETTE["fg"],
+                        activebackground=PALETTE["accent"], activeforeground=PALETTE["accentfg"])
+        tools.add_command(label="Live RF Dashboard…", command=self.open_dashboard)
+        tools.add_command(label="Automated Survey…", command=self.open_survey)
+        tools.add_command(label="AI Assistant (Ollama)…", command=self.open_ai_dialog)
+        tools.add_separator()
+        tools.add_command(label="Firmware updater…", command=self.open_firmware_dialog)
+        tools.add_command(label="PCAP inspector…", command=self.open_pcap_dialog)
+        bar.add_cascade(label="Tools", menu=tools)
+        helpm = tk.Menu(bar, tearoff=False, bg=PALETTE["panel2"], fg=PALETTE["fg"],
+                        activebackground=PALETTE["accent"], activeforeground=PALETTE["accentfg"])
+        helpm.add_command(label="About", command=self.show_about)
+        bar.add_cascade(label="Help", menu=helpm)
+        self.config(menu=bar)
 
     # ---- toolbar ---------------------------------------------------------
     def _build_toolbar(self):
@@ -359,11 +379,11 @@ class MarauderGUI(tk.Tk):
         self.b_base = ttk.Label(parent, text="", style="CardMuted.TLabel", font=MONO)
         self.b_base.pack(anchor="w", pady=(2, 10), **pad)
 
-        self.b_warn = ttk.Label(parent, text="", style="Warn.TLabel")
-        self.b_warn.pack(anchor="w", **pad)
+        self.b_warn = ttk.Label(parent, text="", style="Warn.TLabel")  # packed on demand
 
-        ttk.Label(parent, text="PARAMETERS", style="CardMuted.TLabel",
-                  font=UI_BOLD).pack(anchor="w", pady=(6, 2), **pad)
+        self.params_label = ttk.Label(parent, text="PARAMETERS", style="CardMuted.TLabel",
+                                      font=UI_BOLD)
+        self.params_label.pack(anchor="w", pady=(6, 2), **pad)
         self.params_frame = ttk.Frame(parent, style="Card.TFrame")
         self.params_frame.pack(fill="x", **pad)
 
@@ -548,8 +568,12 @@ class MarauderGUI(tk.Tk):
         self.b_title.configure(text=cmd["name"])
         self.b_base.configure(text=cmd["base"])
         is_attack = "authorized" in cmd["help"].lower() or "disrupt" in cmd["help"].lower()
-        self.b_warn.configure(
-            text="⚠ Active transmission — authorized targets only." if is_attack else "")
+        if is_attack:
+            self.b_warn.configure(text="⚠ Active transmission — authorized targets only.")
+            if not self.b_warn.winfo_ismapped():
+                self.b_warn.pack(anchor="w", padx=16, after=self.b_base)
+        else:
+            self.b_warn.pack_forget()   # no empty gap for non-attack commands
 
         # Surface Stop on the same page for commands that run until stopped.
         if command_runs(cmd["base"]):
@@ -573,6 +597,17 @@ class MarauderGUI(tk.Tk):
             if spec.get("source"):
                 self._build_picker(prow, spec, vars_by_spec[id(spec)])
                 prow += 1
+
+        # Collapse the PARAMETERS section entirely for commands that take none,
+        # so param-less pages (List APs, Reboot, …) don't show an empty block.
+        if cmd["params"]:
+            if not self.params_label.winfo_ismapped():
+                anchor_to = self.b_warn if is_attack else self.b_base
+                self.params_label.pack(anchor="w", padx=16, pady=(6, 2), after=anchor_to)
+                self.params_frame.pack(fill="x", padx=16, after=self.params_label)
+        else:
+            self.params_label.pack_forget()
+            self.params_frame.pack_forget()
 
         self._set_help(cmd)
         self._update_preview()
@@ -1020,7 +1055,22 @@ class MarauderGUI(tk.Tk):
                 self._host_n = 0
                 return True
             return False
-        if not self._parse_mode or not low:
+        if not low:
+            return False
+        if not self._parse_mode:
+            # Not inside a `list` capture → this may be a live recon stream row
+            # ("-81 Ch: 153 <mac> ESSID: <ssid> ..."). Fold it into the AP list so
+            # the dashboard / Targets populate during recon, deduped by BSSID.
+            parsed = parse_scan_line(raw)
+            if parsed and parsed.get("bssid"):
+                ap = self._lists["ap"]
+                idx = next((i for i, r in ap.items() if r.get("bssid") == parsed["bssid"]), None)
+                if idx is None:
+                    idx = str(len(ap))
+                ap[idx] = {"index": idx, "ssid": parsed.get("ssid", ""),
+                           "bssid": parsed["bssid"], "channel": parsed.get("channel", ""),
+                           "rssi": parsed.get("rssi", "")}
+                return True
             return False
         if any(k in low for k in ("selected", "available", "no ap", "no sta", "====")):
             return False
@@ -1148,27 +1198,42 @@ class MarauderGUI(tk.Tk):
             f.write("\n".join(self._hosts) + "\n")
         self.log_event("EXPORT", f"nmap targets -> {os.path.basename(fn)} ({len(self._hosts)} hosts)")
 
+        # Windows nmap accepts forward slashes, and they survive shell pasting
+        # (backslashes in C:\Users\… get eaten and break `-iL`).
+        fwd = fn.replace("\\", "/")
+        cmd_file = f'nmap -iL "{fwd}" -sV -T4'
+        cmd_inline = "nmap -sV -T4 " + " ".join(self._hosts)
+
         win = tk.Toplevel(self)
         win.title("Nmap targets exported")
         win.configure(bg=PALETTE["panel2"])
-        win.geometry("560x210")
+        win.geometry("640x320")
         ttk.Label(win, text=f"Exported {len(self._hosts)} host(s)", style="Title.TLabel").pack(
             anchor="w", padx=16, pady=(14, 2))
-        ttk.Label(win, text=fn, style="CardMuted.TLabel", font=MONO).pack(anchor="w", padx=16)
-        ttk.Label(win, text="Run Nmap against the list:", style="CardMuted.TLabel").pack(
-            anchor="w", padx=16, pady=(12, 2))
-        cmd = f'nmap -iL "{fn}" -sV -T4'
-        e = ttk.Entry(win, font=MONO)
-        e.insert(0, cmd)
-        e.configure(state="readonly")
-        e.pack(fill="x", padx=16, ipady=4)
+        ttk.Label(win, text=fwd, style="CardMuted.TLabel", font=MONO).pack(anchor="w", padx=16)
+
+        ttk.Label(win, text="Run against the file (forward slashes — paste-safe):",
+                  style="CardMuted.TLabel").pack(anchor="w", padx=16, pady=(12, 2))
+        e1 = ttk.Entry(win, font=MONO)
+        e1.insert(0, cmd_file)
+        e1.configure(state="readonly")
+        e1.pack(fill="x", padx=16, ipady=4)
+
+        ttk.Label(win, text="…or targets inline (no file needed):",
+                  style="CardMuted.TLabel").pack(anchor="w", padx=16, pady=(12, 2))
+        e2 = ttk.Entry(win, font=MONO)
+        e2.insert(0, cmd_inline)
+        e2.configure(state="readonly")
+        e2.pack(fill="x", padx=16, ipady=4)
+
         row = ttk.Frame(win, style="Card.TFrame")
         row.pack(fill="x", padx=16, pady=14)
 
-        def copy_cmd():
+        def _copy(text):
             self.clipboard_clear()
-            self.clipboard_append(cmd)
-        ttk.Button(row, text="Copy command", command=copy_cmd).pack(side="right")
+            self.clipboard_append(text)
+        ttk.Button(row, text="Copy inline", command=lambda: _copy(cmd_inline)).pack(side="right")
+        ttk.Button(row, text="Copy file command", command=lambda: _copy(cmd_file)).pack(side="right", padx=8)
 
     def export_console_log(self):
         """Dump the raw serial console to a timestamped text file."""
@@ -1216,6 +1281,564 @@ class MarauderGUI(tk.Tk):
             self.clipboard_append(CONTACT)
         ttk.Button(row, text="Copy email", command=copy_email).pack(side="right", padx=(0, 8))
 
+    # ---- Live RF dashboard ----------------------------------------------
+    @staticmethod
+    def _band(ch):
+        try:
+            return "5 GHz" if int(ch) > 14 else "2.4 GHz"
+        except (TypeError, ValueError):
+            return "?"
+
+    def open_dashboard(self):
+        win = tk.Toplevel(self)
+        win.title("Live RF Dashboard")
+        win.configure(bg=PALETTE["panel2"])
+        win.geometry("760x620")
+        win.transient(self)
+        self._dash_win = win
+        pad = dict(padx=16)
+
+        top = ttk.Frame(win, style="Card.TFrame")
+        top.pack(fill="x", pady=(14, 2), **pad)
+        ttk.Label(top, text="Live RF Dashboard", style="Title.TLabel").pack(side="left")
+        ttk.Label(top, text="Auto-updates from scans. Run Recon / Scan All / List to populate.",
+                  style="CardMuted.TLabel").pack(side="left", padx=12)
+
+        tiles = ttk.Frame(win, style="Card.TFrame")
+        tiles.pack(fill="x", pady=(10, 6), **pad)
+        self._dash_tiles = {}
+        for key, label in (("ap", "Access points"), ("sta", "Stations"), ("host", "Hosts"),
+                           ("ch", "Channels"), ("g24", "2.4 GHz"), ("g5", "5 GHz")):
+            cell = tk.Frame(tiles, bg=PALETTE["entry"], bd=0)
+            cell.pack(side="left", expand=True, fill="x", padx=4)
+            val = tk.Label(cell, text="0", bg=PALETTE["entry"], fg=PALETTE["accent"],
+                           font=(UI[0], 20, "bold"))
+            val.pack(anchor="w", padx=12, pady=(8, 0))
+            tk.Label(cell, text=label, bg=PALETTE["entry"], fg=PALETTE["muted"],
+                     font=(UI[0], 9)).pack(anchor="w", padx=12, pady=(0, 8))
+            self._dash_tiles[key] = val
+
+        gps = ttk.Frame(win, style="Card.TFrame")
+        gps.pack(fill="x", pady=(8, 0), **pad)
+        ttk.Button(gps, text="Read GPS", command=self._dash_read_gps).pack(side="left")
+        self._dash_gps = ttk.Label(gps, text="GPS: press Read GPS", style="CardMuted.TLabel", font=MONO)
+        self._dash_gps.pack(side="left", padx=10)
+
+        ttk.Label(win, text="Access points per channel", style="CardMuted.TLabel",
+                  font=UI_BOLD).pack(anchor="w", pady=(8, 2), **pad)
+        self._dash_canvas = tk.Canvas(win, height=150, bg="#070b0f", highlightthickness=0, bd=0)
+        self._dash_canvas.pack(fill="x", **pad)
+
+        ttk.Label(win, text="Access points (strongest first)", style="CardMuted.TLabel",
+                  font=UI_BOLD).pack(anchor="w", pady=(10, 2), **pad)
+        tw = ttk.Frame(win, style="Card.TFrame")
+        tw.pack(fill="both", expand=True, padx=16, pady=(0, 14))
+        cols = ("rssi", "ch", "band", "ssid", "bssid")
+        self._dash_tree = ttk.Treeview(tw, columns=cols, show="headings")
+        for c, txt, w, a in (("rssi", "RSSI", 60, "center"), ("ch", "CH", 50, "center"),
+                             ("band", "Band", 70, "center"), ("ssid", "SSID / name", 230, "w"),
+                             ("bssid", "BSSID", 150, "w")):
+            self._dash_tree.heading(c, text=txt)
+            self._dash_tree.column(c, width=w, anchor=a, stretch=(c == "ssid"))
+        sb = ttk.Scrollbar(tw, orient="vertical", command=self._dash_tree.yview)
+        self._dash_tree.configure(yscrollcommand=sb.set)
+        sb.pack(side="right", fill="y")
+        self._dash_tree.pack(side="left", fill="both", expand=True)
+        self._dash_refresh()
+
+    def _dash_read_gps(self):
+        if not self.dev:
+            self._dash_gps.configure(text="GPS: connect first")
+            return
+        self._dash_gps.configure(text="GPS: reading…")
+        self._do_send("gpsdata")
+        self.after(2200, self._dash_parse_gps)
+
+    def _dash_parse_gps(self):
+        if self.dev:
+            self._do_send("stopscan", event_kind="STOP")
+        try:
+            txt = self.console.get("1.0", "end")[-2500:]
+        except Exception:
+            txt = ""
+
+        def g(key):
+            m = re.search(key + r"\s*:?\s*([\w.\-]+)", txt, re.I)
+            return m.group(1) if m else "?"
+        win = getattr(self, "_dash_win", None)
+        if win and win.winfo_exists():
+            self._dash_gps.configure(
+                text=f"GPS  Fix:{g('Fix')}  Sats:{g('Sats')}  "
+                     f"Lat:{g('Lat')}  Lon:{g('Lon')}  Alt:{g('Alt')}")
+
+    def _dash_refresh(self):
+        win = getattr(self, "_dash_win", None)
+        if win is None or not win.winfo_exists():
+            return
+        aps = self._lists.get("ap", {})
+        chans = {}
+        g24 = g5 = 0
+        for r in aps.values():
+            ch = r.get("channel", "")
+            if ch:
+                chans[ch] = chans.get(ch, 0) + 1
+                if self._band(ch) == "5 GHz":
+                    g5 += 1
+                elif self._band(ch) == "2.4 GHz":
+                    g24 += 1
+        self._dash_tiles["ap"].configure(text=str(len(aps)))
+        self._dash_tiles["sta"].configure(text=str(len(self._lists.get("sta", {}))))
+        self._dash_tiles["host"].configure(text=str(len(self._lists.get("host", {}))))
+        self._dash_tiles["ch"].configure(text=str(len(chans)))
+        self._dash_tiles["g24"].configure(text=str(g24))
+        self._dash_tiles["g5"].configure(text=str(g5))
+
+        c = self._dash_canvas
+        c.delete("all")
+        if chans:
+            w = c.winfo_width() or 700
+            items = sorted(chans.items(), key=lambda kv: int(kv[0]) if kv[0].isdigit() else 0)
+            n = len(items)
+            bw = max(14, min(48, (w - 20) // max(n, 1) - 8))
+            mx = max(chans.values())
+            x = 14
+            for ch, cnt in items:
+                h = int(120 * cnt / mx) if mx else 0
+                c.create_rectangle(x, 130 - h, x + bw, 130, fill=PALETTE["accent"], outline="")
+                c.create_text(x + bw / 2, 142, text=ch, fill=PALETTE["muted"], font=(UI[0], 8))
+                c.create_text(x + bw / 2, 128 - h - 6, text=str(cnt), fill=PALETTE["fg"], font=(UI[0], 8))
+                x += bw + 8
+
+        def _rk(r):
+            try:
+                return int(r.get("rssi") or -999)
+            except ValueError:
+                return -999
+        self._dash_tree.delete(*self._dash_tree.get_children())
+        for r in sorted(aps.values(), key=_rk, reverse=True):
+            self._dash_tree.insert("", "end", values=(r.get("rssi", ""), r.get("channel", ""),
+                                   self._band(r.get("channel", "")), r.get("ssid", ""), r.get("bssid", "")))
+        win.after(1500, self._dash_refresh)
+
+    # ---- Automated passive survey ---------------------------------------
+    def open_survey(self):
+        win = tk.Toplevel(self)
+        win.title("Automated Survey (passive)")
+        win.configure(bg=PALETTE["panel2"])
+        win.geometry("780x600")
+        win.transient(self)
+        self._survey_win = win
+        if not hasattr(self, "_survey_inv"):
+            self._survey_inv = {}
+        self._survey_on = False
+        self._survey_i = 0
+        self._survey_mask_mac = tk.BooleanVar(value=False)
+        self._survey_omit_ssid = tk.BooleanVar(value=False)
+        pad = dict(padx=16)
+
+        ttk.Label(win, text="Automated Survey", style="Title.TLabel").pack(anchor="w", pady=(14, 2), **pad)
+        ttk.Label(win, text="Passive, receive-only loop (recon → list). Deduplicates devices over time "
+                  "and accumulates an inventory you can export. Nothing transmits.",
+                  style="CardMuted.TLabel", wraplength=740, justify="left").pack(anchor="w", **pad)
+
+        row = ttk.Frame(win, style="Card.TFrame")
+        row.pack(fill="x", pady=(10, 4), **pad)
+        self._survey_btn = ttk.Button(row, text="▶ Start survey", style="Accent.TButton",
+                                      command=self._survey_toggle)
+        self._survey_btn.pack(side="left")
+        self._survey_status = ttk.Label(row, text="0 devices", style="CardMuted.TLabel")
+        self._survey_status.pack(side="left", padx=12)
+        ttk.Checkbutton(row, text="Mask MACs", style="Card.TCheckbutton",
+                        variable=self._survey_mask_mac).pack(side="right")
+        ttk.Checkbutton(row, text="Omit SSIDs", style="Card.TCheckbutton",
+                        variable=self._survey_omit_ssid).pack(side="right", padx=10)
+
+        exp = ttk.Frame(win, style="Card.TFrame")
+        exp.pack(fill="x", pady=(2, 6), **pad)
+        ttk.Label(exp, text="Export inventory:", style="CardMuted.TLabel").pack(side="left")
+        ttk.Button(exp, text="JSON", command=lambda: self._survey_export("json")).pack(side="left", padx=6)
+        ttk.Button(exp, text="CSV", command=lambda: self._survey_export("csv")).pack(side="left")
+        ttk.Button(exp, text="KML", command=lambda: self._survey_export("kml")).pack(side="left", padx=6)
+        ttk.Button(exp, text="Clear", command=self._survey_clear).pack(side="right")
+
+        tw = ttk.Frame(win, style="Card.TFrame")
+        tw.pack(fill="both", expand=True, padx=16, pady=(6, 14))
+        cols = ("ssid", "bssid", "ch", "band", "rssi", "count", "last")
+        self._survey_tree = ttk.Treeview(tw, columns=cols, show="headings")
+        for c, txt, w, a in (("ssid", "SSID / name", 190, "w"), ("bssid", "BSSID", 150, "w"),
+                             ("ch", "CH", 44, "center"), ("band", "Band", 64, "center"),
+                             ("rssi", "RSSI", 54, "center"), ("count", "Seen", 50, "center"),
+                             ("last", "Last seen", 150, "w")):
+            self._survey_tree.heading(c, text=txt)
+            self._survey_tree.column(c, width=w, anchor=a, stretch=(c == "ssid"))
+        sb = ttk.Scrollbar(tw, orient="vertical", command=self._survey_tree.yview)
+        self._survey_tree.configure(yscrollcommand=sb.set)
+        sb.pack(side="right", fill="y")
+        self._survey_tree.pack(side="left", fill="both", expand=True)
+        self._survey_update_table()
+
+    _SURVEY_STEPS = [("recon wifi", 3500), ("stopscan", 600), ("list -a", 1200),
+                     ("__merge_ap", 50), ("list -s", 1200), ("__merge_sta", 50)]
+
+    def _survey_toggle(self):
+        self._survey_on = not self._survey_on
+        if self._survey_on:
+            if not self.dev:
+                messagebox.showinfo("Not connected", "Connect to the Marauder first.")
+                self._survey_on = False
+                return
+            self._survey_i = 0
+            self._survey_btn.configure(text="■ Stop survey")
+            self._survey_step()
+        else:
+            self._survey_btn.configure(text="▶ Start survey")
+            if self.dev:
+                self._do_send("stopscan", event_kind="STOP")
+
+    def _survey_step(self):
+        if not self._survey_on or not self.dev:
+            return
+        action, delay = self._SURVEY_STEPS[self._survey_i % len(self._SURVEY_STEPS)]
+        self._survey_i += 1
+        if action == "__merge_ap":
+            self._survey_merge("ap")
+        elif action == "__merge_sta":
+            self._survey_merge("sta")
+        elif not marauder_ai.is_active(action):   # safety: passive only
+            self._do_send(action)
+        win = getattr(self, "_survey_win", None)
+        if win and win.winfo_exists():
+            win.after(delay, self._survey_step)
+
+    def _survey_merge(self, kind):
+        now = _dt.datetime.now().strftime("%H:%M:%S")
+        for r in self._lists.get(kind, {}).values():
+            key = r.get("bssid") or f"{kind}:{r.get('ssid','')}:{r.get('channel','')}"
+            if not key:
+                continue
+            e = self._survey_inv.get(key)
+            if e is None:
+                self._survey_inv[key] = {
+                    "kind": kind, "bssid": r.get("bssid", ""), "ssid": r.get("ssid", ""),
+                    "channel": r.get("channel", ""), "band": self._band(r.get("channel", "")),
+                    "rssi": r.get("rssi", ""), "first_seen": now, "last_seen": now, "count": 1}
+            else:
+                e["last_seen"] = now
+                e["count"] += 1
+                if r.get("ssid"):
+                    e["ssid"] = r["ssid"]
+                if r.get("channel"):
+                    e["channel"] = r["channel"]
+                    e["band"] = self._band(r["channel"])
+                try:
+                    if r.get("rssi") and int(r["rssi"]) > int(e.get("rssi") or -999):
+                        e["rssi"] = r["rssi"]
+                except ValueError:
+                    pass
+        self._survey_update_table()
+
+    def _survey_update_table(self):
+        win = getattr(self, "_survey_win", None)
+        if win is None or not win.winfo_exists():
+            return
+        self._survey_tree.delete(*self._survey_tree.get_children())
+        for e in sorted(self._survey_inv.values(), key=lambda x: x.get("last_seen", ""), reverse=True):
+            self._survey_tree.insert("", "end", values=(e["ssid"], e["bssid"], e["channel"],
+                                     e["band"], e["rssi"], e["count"], e["last_seen"]))
+        self._survey_status.configure(text=f"{len(self._survey_inv)} devices")
+
+    def _survey_clear(self):
+        self._survey_inv = {}
+        self._survey_update_table()
+
+    def _survey_rows(self):
+        """Inventory rows with privacy controls applied (for export)."""
+        mask = self._survey_mask_mac.get()
+        omit = self._survey_omit_ssid.get()
+        rows = []
+        for e in self._survey_inv.values():
+            bssid = e["bssid"]
+            if mask and bssid and bssid.count(":") == 5:
+                bssid = ":".join(bssid.split(":")[:3] + ["xx", "xx", "xx"])
+            rows.append({"kind": e["kind"], "ssid": "" if omit else e["ssid"], "bssid": bssid,
+                         "channel": e["channel"], "band": e["band"], "rssi": e["rssi"],
+                         "count": e["count"], "first_seen": e["first_seen"], "last_seen": e["last_seen"]})
+        return rows
+
+    def _survey_export(self, fmt):
+        if not self._survey_inv:
+            messagebox.showinfo("Nothing to export", "The inventory is empty — start the survey first.")
+            return
+        rows = self._survey_rows()
+        d = self._logs_dir()
+        stamp = _dt.datetime.now().strftime("%Y%m%d_%H%M%S")
+        if fmt == "json":
+            import json as _json
+            fn = os.path.join(d, f"survey_{stamp}.json")
+            with open(fn, "w", encoding="utf-8") as f:
+                _json.dump(rows, f, indent=2)
+        elif fmt == "csv":
+            fn = os.path.join(d, f"survey_{stamp}.csv")
+            with open(fn, "w", newline="", encoding="utf-8") as f:
+                w = csv.DictWriter(f, fieldnames=list(rows[0].keys()))
+                w.writeheader()
+                w.writerows(rows)
+        else:  # kml
+            fn = os.path.join(d, f"survey_{stamp}.kml")
+            with open(fn, "w", encoding="utf-8") as f:
+                f.write('<?xml version="1.0" encoding="UTF-8"?>\n'
+                        '<kml xmlns="http://www.opengis.net/kml/2.2"><Document>\n')
+                f.write("<!-- No GPS coordinates captured in this build; placemarks omitted. "
+                        "Device inventory is listed as a fallback. -->\n")
+                for r in rows:
+                    f.write(f"<Placemark><name>{(r['ssid'] or r['bssid'])}</name>"
+                            f"<description>ch {r['channel']} {r['band']} rssi {r['rssi']}</description>"
+                            "</Placemark>\n")
+                f.write("</Document></kml>\n")
+        self.log_event("EXPORT", f"survey {fmt} -> {os.path.basename(fn)} ({len(rows)} devices)")
+        messagebox.showinfo("Survey exported", f"Saved {len(rows)} device(s):\n{fn}")
+
+    # ---- AI assistant (local Ollama) ------------------------------------
+    def open_ai_dialog(self):
+        win = tk.Toplevel(self)
+        win.title("AI Assistant — local Ollama")
+        win.configure(bg=PALETTE["panel2"])
+        win.geometry("720x620")
+        win.transient(self)
+        self._ai_win = win
+        self._ai_q = queue.Queue()
+        self._ai_ready = False
+        self._ai_busy = False
+        self._ai_survey_on = False
+        self._ai_survey_seq = ["recon wifi", "stopscan", "list -a",
+                               "recon ble", "stopscan"]
+        self._ai_survey_i = 0
+        self._ai_history = []
+        self._ai_autorun = tk.BooleanVar(value=False)
+        pad = dict(padx=16)
+
+        ttk.Label(win, text="AI Assistant", style="Title.TLabel").pack(anchor="w", pady=(16, 2), **pad)
+        ttk.Label(win, text="Local, optional analysis via Ollama. It summarizes and recommends; it never "
+                  "sends commands itself — suggestions load into the Raw box for you to review and send. "
+                  "Active/transmitting steps always require your approval.",
+                  style="CardMuted.TLabel", wraplength=680, justify="left").pack(anchor="w", **pad)
+
+        row1 = ttk.Frame(win, style="Card.TFrame")
+        row1.pack(fill="x", pady=(12, 4), **pad)
+        ttk.Label(row1, text="Model", style="CardMuted.TLabel").pack(side="left")
+        self._ai_model = ttk.Entry(row1, width=18, font=MONO)
+        self._ai_model.insert(0, marauder_ai.DEFAULT_MODEL)
+        self._ai_model.pack(side="left", padx=8)
+        ttk.Button(row1, text="Enable / verify", style="Accent.TButton",
+                   command=self._ai_enable).pack(side="left")
+        self._ai_status = ttk.Label(row1, text="● not connected", style="CardMuted.TLabel")
+        self._ai_status.pack(side="left", padx=10)
+
+        row2 = ttk.Frame(win, style="Card.TFrame")
+        row2.pack(fill="x", pady=(6, 4), **pad)
+        ttk.Button(row2, text="Analyze observations", command=self._ai_analyze).pack(side="left")
+        ttk.Button(row2, text="New chat", command=self._ai_newchat).pack(side="left", padx=8)
+        self._ai_survey_btn = ttk.Button(row2, text="▶ Passive survey", command=self._ai_survey_toggle)
+        self._ai_survey_btn.pack(side="left")
+        ttk.Checkbutton(row2, text="Let AI run passive commands", style="Card.TCheckbutton",
+                        variable=self._ai_autorun).pack(side="right")
+
+        row3 = ttk.Frame(win, style="Card.TFrame")
+        row3.pack(fill="x", pady=(6, 4), **pad)
+        ttk.Label(row3, text="Ask", style="CardMuted.TLabel").pack(side="left")
+        self._ai_ask_var = tk.StringVar()
+        ask = ttk.Entry(row3, textvariable=self._ai_ask_var, font=UI)
+        ask.pack(side="left", fill="x", expand=True, padx=(6, 6), ipady=3)
+        ask.bind("<Return>", lambda e: self._ai_ask())
+        ttk.Button(row3, text="Send", command=self._ai_ask).pack(side="left")
+
+        ow = ttk.Frame(win, style="Card.TFrame")
+        ow.pack(fill="both", expand=True, padx=16, pady=(8, 16))
+        self._ai_out_txt = tk.Text(ow, wrap="word", relief="flat", bg="#070b0f",
+                                   fg=PALETTE["fg"], font=UI, padx=10, pady=8)
+        sb = ttk.Scrollbar(ow, orient="vertical", command=self._ai_out_txt.yview)
+        self._ai_out_txt.configure(yscrollcommand=sb.set)
+        sb.pack(side="right", fill="y")
+        self._ai_out_txt.pack(side="left", fill="both", expand=True)
+        self._ai_drain()
+
+    def _ai_out(self, s):
+        self._ai_q.put(s)
+
+    def _ai_drain(self):
+        win = getattr(self, "_ai_win", None)
+        if win is None or not win.winfo_exists():
+            return
+        try:
+            while True:
+                s = self._ai_q.get_nowait()
+                self._ai_out_txt.insert("end", s)
+                self._ai_out_txt.see("end")
+        except queue.Empty:
+            pass
+        win.after(80, self._ai_drain)
+
+    def _ai_enable(self):
+        def work():
+            model = self._ai_model.get().strip() or marauder_ai.DEFAULT_MODEL
+            ok, models, err = marauder_ai.check_ollama()
+            if not ok:
+                self._ai_ready = False
+                self._ai_out(f"Could not reach Ollama at {marauder_ai.OLLAMA_HOST}\n  {err}\n"
+                             "Install/run Ollama (https://ollama.com) and `ollama pull "
+                             f"{model}`.\n")
+                self._ai_set_status("● not connected", PALETTE["warn"])
+                return
+            if not marauder_ai.has_model(models, model):
+                self._ai_ready = False
+                self._ai_out(f"Connected to Ollama, but model '{model}' isn't installed.\n"
+                             f"Installed: {', '.join(models) or '(none)'}\n"
+                             f"Run:  ollama pull {model}\n")
+                self._ai_set_status("● model missing", PALETTE["warn"])
+                return
+            self._ai_ready = True
+            self._ai_out(f"Connected to Ollama — model '{model}' is available. Ready.\n")
+            self._ai_set_status("● ready", PALETTE["ok"])
+        threading.Thread(target=work, daemon=True).start()
+
+    def _ai_set_status(self, text, color):
+        win = getattr(self, "_ai_win", None)
+        if win and win.winfo_exists():
+            win.after(0, lambda: self._ai_status.configure(text=text, foreground=color))
+
+    def _ai_context(self):
+        try:
+            events = self.eventlog.get("1.0", "end")  # already redacted
+        except Exception:
+            events = ""
+        return marauder_ai.sanitize_context(self._lists.get("ap", {}),
+                                            self._lists.get("sta", {}),
+                                            self._lists.get("host", {}), events)
+
+    def _ai_newchat(self):
+        self._ai_history = []
+        self._ai_out("\n[new conversation — history cleared]\n")
+
+    def _ai_chat(self, user_text):
+        """Conversational turn with memory. Current observations are attached so the
+        model always sees the latest state; its RUN: commands are then dispatched."""
+        if not self._ai_ready:
+            self._ai_out("Enable / verify the model first.\n")
+            return
+        if self._ai_busy:
+            return
+        self._ai_busy = True
+        model = self._ai_model.get().strip() or marauder_ai.DEFAULT_MODEL
+        content = f"{user_text}\n\n[Current observations]\n{self._ai_context()}"
+        self._ai_history.append({"role": "user", "content": content})
+
+        def work():
+            acc = []
+            try:
+                marauder_ai.chat(self._ai_history, model=model,
+                                 stream_cb=lambda s: (acc.append(s), self._ai_out(s)))
+            except Exception as e:  # noqa: BLE001
+                self._ai_out(f"\n[AI error] {e}\n")
+                self._ai_busy = False
+                return
+            reply = "".join(acc)
+            self._ai_history.append({"role": "assistant", "content": reply})
+            self._ai_out("\n")
+            for cmd in marauder_ai.extract_run_commands(reply):
+                self._ai_dispatch(cmd)
+            self._ai_busy = False
+        threading.Thread(target=work, daemon=True).start()
+
+    def _ai_dispatch(self, cmd):
+        """Run a model-requested command: passive ones auto-run if allowed; anything
+        that transmits is queued in the Raw box for the operator to approve."""
+        if marauder_ai.is_active(cmd):
+            win = getattr(self, "_ai_win", None)
+            if win and win.winfo_exists():
+                win.after(0, lambda: self.raw_var.set(cmd))
+            self._ai_out(f"[needs approval — transmitting] {cmd}  →  loaded in Raw box; review and Send.\n")
+        elif self._ai_autorun.get() and self.dev:
+            win = getattr(self, "_ai_win", None)
+            if win and win.winfo_exists():
+                win.after(0, lambda c=cmd: self._do_send(c))
+            self._ai_out(f"[auto-run passive] {cmd}\n")
+        else:
+            win = getattr(self, "_ai_win", None)
+            if win and win.winfo_exists():
+                win.after(0, lambda: self.raw_var.set(cmd))
+            self._ai_out(f"[suggested] {cmd}  →  loaded in Raw box (enable auto-run, or Send).\n")
+
+    def _ai_analyze(self):
+        self._ai_out("\n--- Analysis ---\n")
+        self._ai_chat("Summarize what's present and note anything notable.")
+
+    def _ai_ask(self):
+        q = self._ai_ask_var.get().strip()
+        if not q:
+            return
+        self._ai_ask_var.set("")
+        self._ai_out(f"\n> {q}\n")
+        self._ai_chat(q)
+
+    def _ai_suggest(self):
+        if not self._ai_ready:
+            self._ai_out("Enable / verify the model first.\n")
+            return
+        if self._ai_busy:
+            return
+        self._ai_busy = True
+        model = self._ai_model.get().strip() or marauder_ai.DEFAULT_MODEL
+        prompt = ("Given these observations, recommend the single most useful NEXT Marauder "
+                  "command (prefer passive reconnaissance). Reply with ONLY the command on one "
+                  "line, nothing else.\n\n" + self._ai_context())
+
+        def work():
+            try:
+                out = marauder_ai.generate(prompt, model=model)
+                cmd = out.strip().splitlines()[0].strip().strip("`").strip() if out.strip() else ""
+                if not cmd:
+                    self._ai_out("\n[no suggestion]\n")
+                    return
+                active = marauder_ai.is_active(cmd)
+                tag = "ACTIVE — needs your explicit approval" if active else "passive"
+                self._ai_out(f"\nSuggested ({tag}): {cmd}\n"
+                             "Loaded into the Raw box — review and press Send to run it.\n")
+                win = getattr(self, "_ai_win", None)
+                if win and win.winfo_exists():
+                    win.after(0, lambda: self.raw_var.set(cmd))
+            except Exception as e:  # noqa: BLE001
+                self._ai_out(f"\n[AI error] {e}\n")
+            finally:
+                self._ai_busy = False
+        threading.Thread(target=work, daemon=True).start()
+
+    def _ai_survey_toggle(self):
+        self._ai_survey_on = not self._ai_survey_on
+        if self._ai_survey_on:
+            if not self.dev:
+                messagebox.showinfo("Not connected", "Connect to the Marauder first.")
+                self._ai_survey_on = False
+                return
+            self._ai_survey_i = 0
+            self._ai_survey_btn.configure(text="■ Stop survey")
+            self._ai_out("\n[passive survey started — receive-only loop]\n")
+            self._ai_survey_step()
+        else:
+            self._ai_survey_btn.configure(text="▶ Passive survey")
+            self._ai_out("[passive survey stopped]\n")
+            if self.dev:
+                self._do_send("stopscan", event_kind="STOP")
+
+    def _ai_survey_step(self):
+        if not self._ai_survey_on or not self.dev:
+            return
+        cmd = self._ai_survey_seq[self._ai_survey_i % len(self._ai_survey_seq)]
+        self._ai_survey_i += 1
+        if marauder_ai.is_active(cmd):   # safety: never transmit from the survey loop
+            cmd = "stopscan"
+        self._do_send(cmd)
+        self.after(6000, self._ai_survey_step)
+
     # ---- firmware flasher (V8 / ESP32-C5) --------------------------------
     def open_firmware_dialog(self):
         win = tk.Toplevel(self)
@@ -1251,7 +1874,11 @@ class MarauderGUI(tk.Tk):
 
         self._fw_file = tk.StringVar(value="")
         ttk.Label(win, text="Firmware file to flash:", style="CardMuted.TLabel").pack(anchor="w", pady=(8, 2), **pad)
-        ttk.Entry(win, textvariable=self._fw_file, font=MONO).pack(fill="x", ipady=3, **pad)
+        fe = ttk.Entry(win, textvariable=self._fw_file, font=MONO)
+        fe.pack(fill="x", ipady=3, **pad)
+        self._fw_verline = tk.StringVar(value=self._fw_version_line())
+        ttk.Label(win, textvariable=self._fw_verline, style="CardMuted.TLabel").pack(anchor="w", **pad)
+        self._fw_file.trace_add("write", lambda *_: self._fw_verline.set(self._fw_version_line()))
 
         actrow = ttk.Frame(win, style="Card.TFrame")
         actrow.pack(fill="x", pady=(10, 4), **pad)
@@ -1297,6 +1924,27 @@ class MarauderGUI(tk.Tk):
         if self.dev:
             self._fw_out("Disconnecting GUI to free the port for esptool…\n")
             self._disconnect()
+
+    def _detect_current_fw_version(self):
+        """Best-effort installed version, read from the device's boot/serial text."""
+        try:
+            txt = self.console.get("1.0", "end")
+        except Exception:
+            txt = ""
+        return marauder_flash.parse_device_version(txt)
+
+    def _fw_version_line(self):
+        cur = self._detect_current_fw_version()
+        tgt = marauder_flash.version_from_filename(self._fw_file.get().strip())
+        s = f"Installed: {marauder_flash.version_str(cur)}    •    To flash: {marauder_flash.version_str(tgt)}"
+        if cur and tgt:
+            if tgt > cur:
+                s += "   (newer ✓)"
+            elif tgt == cur:
+                s += "   (same version)"
+            else:
+                s += "   (OLDER — downgrade)"
+        return s
 
     def _fw_browse(self):
         p = filedialog.askopenfilename(title="Select firmware .bin",
@@ -1353,9 +2001,22 @@ class MarauderGUI(tk.Tk):
         if not path or not os.path.isfile(path):
             messagebox.showwarning("No firmware", "Fetch the latest firmware or Browse to a .bin first.")
             return
+        # Version comparison: warn on a downgrade / same-version re-flash.
+        cur = self._detect_current_fw_version()
+        tgt = marauder_flash.version_from_filename(path)
+        if cur and tgt and tgt <= cur:
+            rel = "the same as" if tgt == cur else "OLDER than"
+            if not messagebox.askyesno(
+                    "Not a newer version",
+                    f"The firmware you're about to flash (v{marauder_flash.version_str(tgt)}) is "
+                    f"{rel} the installed version (v{marauder_flash.version_str(cur)}).\n\n"
+                    "Flash it anyway?"):
+                return
+        ver_note = (f"  (v{marauder_flash.version_str(tgt)} over v{marauder_flash.version_str(cur)})"
+                    if (cur or tgt) else "")
         if not messagebox.askyesno(
                 "Flash firmware",
-                f"Write this firmware to the Marauder on {port}?\n\n{os.path.basename(path)}\n\n"
+                f"Write this firmware to the Marauder on {port}?\n\n{os.path.basename(path)}{ver_note}\n\n"
                 "The chip is auto-detected. Do NOT unplug the device while flashing. Continue?"):
             return
         self._fw_free_port()

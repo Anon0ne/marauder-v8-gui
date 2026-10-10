@@ -17,6 +17,8 @@ from __future__ import annotations
 
 import io
 import json
+import os
+import re
 import shutil
 import subprocess
 import sys
@@ -186,6 +188,33 @@ def flash_args(port: str, app_bin: str, baud: int = 921600, full: bool = False,
               hex(OFFSET_BOOT_APP0), support["boot_app0"]]
     a += [hex(OFFSET_APP), app_bin]
     return a
+
+
+def version_tuple(s: str):
+    """Extract a (major, minor, patch) version from text, or None. Accepts '.' or
+    '_' separators, e.g. 'v1.18.0' or '..._v1_18_0_...'."""
+    m = re.search(r"(\d+)[._](\d+)[._](\d+)", s or "")
+    return tuple(int(x) for x in m.groups()) if m else None
+
+
+def version_str(vt) -> str:
+    return ".".join(str(x) for x in vt) if vt else "unknown"
+
+
+def version_from_filename(path: str):
+    """Target version parsed from a firmware filename (release names carry it)."""
+    return version_tuple(os.path.basename(path or ""))
+
+
+def parse_device_version(text: str):
+    """Best-effort current firmware version from serial/boot text. Prefers a line
+    that mentions 'marauder'; falls back to any version-looking token."""
+    for line in (text or "").splitlines():
+        if "marauder" in line.lower():
+            vt = version_tuple(line)
+            if vt:
+                return vt
+    return version_tuple(text)
 
 
 def chipinfo_args(port: str, baud: int = 115200) -> list:
