@@ -69,12 +69,12 @@ $py=Join-Path $PSScriptRoot '.build-venv\Scripts\python.exe'
 if ($LASTEXITCODE -ne 0) { throw 'pip upgrade failed' }
 Write-Host 'Checking application and build dependencies...'
 # pip checks installed versions against requirements and only downloads missing/outdated packages.
-& $py -m pip install --prefer-binary -r requirements.txt 'pyinstaller>=6.0,<7'
+& $py -m pip install --prefer-binary -r requirements-build.lock
 if ($LASTEXITCODE -ne 0) { throw 'Dependency installation failed; check internet access and pip output.' }
 & $py -m pip check
 if ($LASTEXITCODE -ne 0) { throw 'Dependency conflict detected; build stopped.' }
 if ($EnableNPU) {
-  & $py -m pip install -r requirements-npu.txt
+  & $py -m pip install -r requirements-npu-build.lock
   if ($LASTEXITCODE -ne 0) { throw 'NPU dependency installation failed.' }
 }
 & $py -c 'import serial, esptool, PyInstaller'
@@ -96,7 +96,7 @@ foreach ($dir in @($desktop,$start)) {
   $lnk=$wsh.CreateShortcut((Join-Path $dir 'Marauder V8 Control.lnk'))
   $lnk.TargetPath=Join-Path $install 'MarauderV8-Control.exe'
   $lnk.WorkingDirectory=$install
-  $lnk.Description='Marauder V8 Workspace 0.4.0b Beta'
+  $lnk.Description='Marauder V8 Control'
   $lnk.IconLocation=Join-Path $install 'MarauderV8-Control.exe'
   $lnk.Save()
 }

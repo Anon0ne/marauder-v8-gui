@@ -23,6 +23,9 @@ import shutil
 import subprocess
 import sys
 import urllib.request
+from urllib.parse import urlparse
+from pathlib import Path
+import tempfile
 
 _NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)  # don't flash a console on Windows
 
@@ -59,26 +62,56 @@ def pick_asset(assets: list, keyword: str):
     exact = [a for a in assets if a["name"].lower().endswith(f"_{kw}.bin")]
     if exact:
         return exact[0]
-    cand = [a for a in assets if kw in a["name"].lower()]
-    return cand[0] if cand else None
+    return None
 
 
-def download_asset(url: str, dest_path: str, progress_cb=None, timeout: int = 60) -> str:
-    """Download a release asset to dest_path, calling progress_cb(got, total) as it goes."""
-    req = urllib.request.Request(url, headers={"User-Agent": "marauder-v8-gui"})
-    with urllib.request.urlopen(req, timeout=timeout) as r:
-        total = int(r.headers.get("Content-Length") or 0)
-        got = 0
-        with open(dest_path, "wb") as f:
-            while True:
-                chunk = r.read(65536)
-                if not chunk:
-                    break
-                f.write(chunk)
-                got += len(chunk)
-                if progress_cb:
-                    progress_cb(got, total)
-    return dest_path
+def safe_asset_path(folder, name):
+    if not re.fullmatch(r'[A-Za-z0-9_.-]+\.bin', name) or name in {'.', '..'}:
+        raise ValueError('Unsafe firmware asset filename')
+    return str(Path(folder).resolve() / name)
+
+
+def download_asset(url, dest_path, progress_cb=None, timeout=60, expected_size=None):
+    """Bounded atomic download. A failed fetch never replaces existing firmware."""
+    allowed = {'github.com', 'objects.githubusercontent.com', 'release-assets.githubusercontent.com'}
+    def validate(value):
+        parsed = urlparse(value)
+        if parsed.scheme != 'https' or parsed.hostname not in allowed or parsed.username or parsed.password:
+            raise ValueError('Firmware downloads require an official GitHub HTTPS asset URL')
+    validate(url)
+    limit = 64 * 1024 * 1024
+    if expected_size is not None and not 0 < expected_size <= limit:
+        raise ValueError('Invalid firmware asset size')
+    dest = Path(dest_path)
+    temporary = None
+    req = urllib.request.Request(url, headers={'User-Agent': 'marauder-v8-gui'})
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as response:
+            validate(response.geturl())
+            total = int(response.headers.get('Content-Length') or 0)
+            if total > limit:
+                raise ValueError('Firmware exceeds download limit')
+            with tempfile.NamedTemporaryFile(dir=dest.parent, suffix='.part', delete=False) as output:
+                temporary = Path(output.name)
+                got = 0
+                while True:
+                    chunk = response.read(65536)
+                    if not chunk:
+                        break
+                    got += len(chunk)
+                    if got > limit or (expected_size is not None and got > expected_size):
+                        raise ValueError('Firmware download exceeds expected size')
+                    output.write(chunk)
+                    if progress_cb:
+                        progress_cb(got, expected_size or total)
+            if got == 0 or (total and got != total) or (expected_size is not None and got != expected_size):
+                raise ValueError('Incomplete firmware download')
+        os.replace(temporary, dest)
+        temporary = None
+        return str(dest)
+    finally:
+        if temporary is not None:
+            temporary.unlink(missing_ok=True)
 
 
 def esptool_command() -> list | None:

@@ -1,0 +1,1526 @@
+{
+  "firmware_commit": "d3ceb28afeda1196ca27c13adeaa69ada52383f3",
+  "commands": [
+    {
+      "radio": "WiFi",
+      "group": "Recon & Scan",
+      "name": "Recon WiFi",
+      "base": "recon wifi",
+      "token": "recon",
+      "registered": true,
+      "parameters": []
+    },
+    {
+      "radio": "WiFi",
+      "group": "Recon & Scan",
+      "name": "Recon Status",
+      "base": "recon status",
+      "token": "recon",
+      "registered": true,
+      "parameters": []
+    },
+    {
+      "radio": "WiFi",
+      "group": "Recon & Scan",
+      "name": "Scan All",
+      "base": "scanall",
+      "token": "scanall",
+      "registered": true,
+      "parameters": []
+    },
+    {
+      "radio": "WiFi",
+      "group": "Recon & Scan",
+      "name": "Packet Count",
+      "base": "packetcount",
+      "token": "packetcount",
+      "registered": true,
+      "parameters": []
+    },
+    {
+      "radio": "WiFi",
+      "group": "Recon & Scan",
+      "name": "MAC Track",
+      "base": "mactrack",
+      "token": "mactrack",
+      "registered": true,
+      "parameters": []
+    },
+    {
+      "radio": "WiFi",
+      "group": "Recon & Scan",
+      "name": "Signal Monitor",
+      "base": "sigmon",
+      "token": "sigmon",
+      "registered": false,
+      "parameters": []
+    },
+    {
+      "radio": "WiFi",
+      "group": "Recon & Scan",
+      "name": "Wardrive",
+      "base": "wardrive",
+      "token": "wardrive",
+      "registered": true,
+      "parameters": []
+    },
+    {
+      "radio": "WiFi",
+      "group": "Recon & Scan",
+      "name": "Wardrive POI",
+      "base": "wardrivepoi",
+      "token": "wardrivepoi",
+      "registered": true,
+      "parameters": [
+        {
+          "label": "Label",
+          "flag": null,
+          "kind": "text",
+          "choices": [],
+          "placeholder": "optional label",
+          "default": "",
+          "help": "",
+          "source": "",
+          "multi": false
+        }
+      ]
+    },
+    {
+      "radio": "WiFi",
+      "group": "Sniffers",
+      "name": "Beacon Sniff",
+      "base": "sniffbeacon",
+      "token": "sniffbeacon",
+      "registered": true,
+      "parameters": []
+    },
+    {
+      "radio": "WiFi",
+      "group": "Sniffers",
+      "name": "Probe Sniff",
+      "base": "sniffprobe",
+      "token": "sniffprobe",
+      "registered": true,
+      "parameters": []
+    },
+    {
+      "radio": "WiFi",
+      "group": "Sniffers",
+      "name": "Deauth Sniff",
+      "base": "sniffdeauth",
+      "token": "sniffdeauth",
+      "registered": true,
+      "parameters": []
+    },
+    {
+      "radio": "WiFi",
+      "group": "Sniffers",
+      "name": "PMKID / EAPOL Sniff",
+      "base": "sniffpmkid",
+      "token": "sniffpmkid",
+      "registered": true,
+      "parameters": [
+        {
+          "label": "Channel",
+          "flag": "-c",
+          "kind": "int",
+          "choices": [],
+          "placeholder": "1-14",
+          "default": "",
+          "help": "Lock to this channel.",
+          "source": "",
+          "multi": false
+        },
+        {
+          "label": "Force (deauth)",
+          "flag": "-d",
+          "kind": "bool",
+          "choices": [],
+          "placeholder": "",
+          "default": "",
+          "help": "Deauth clients to force a handshake.",
+          "source": "",
+          "multi": false
+        },
+        {
+          "label": "Loop",
+          "flag": "-l",
+          "kind": "bool",
+          "choices": [],
+          "placeholder": "",
+          "default": "",
+          "help": "Continuous / channel-looping capture.",
+          "source": "",
+          "multi": false
+        }
+      ]
+    },
+    {
+      "radio": "WiFi",
+      "group": "Sniffers",
+      "name": "SAE Sniff",
+      "base": "sniffsae",
+      "token": "sniffsae",
+      "registered": true,
+      "parameters": []
+    },
+    {
+      "radio": "WiFi",
+      "group": "Sniffers",
+      "name": "ESP Sniff",
+      "base": "sniffesp",
+      "token": "sniffesp",
+      "registered": false,
+      "parameters": []
+    },
+    {
+      "radio": "WiFi",
+      "group": "Sniffers",
+      "name": "Pwnagotchi Sniff",
+      "base": "sniffpwn",
+      "token": "sniffpwn",
+      "registered": true,
+      "parameters": []
+    },
+    {
+      "radio": "WiFi",
+      "group": "Sniffers",
+      "name": "Pineapple Sniff",
+      "base": "sniffpinescan",
+      "token": "sniffpinescan",
+      "registered": true,
+      "parameters": []
+    },
+    {
+      "radio": "WiFi",
+      "group": "Sniffers",
+      "name": "Multi-SSID Sniff",
+      "base": "sniffmultissid",
+      "token": "sniffmultissid",
+      "registered": true,
+      "parameters": []
+    },
+    {
+      "radio": "WiFi",
+      "group": "Sniffers",
+      "name": "Raw Sniff",
+      "base": "sniffraw",
+      "token": "sniffraw",
+      "registered": true,
+      "parameters": []
+    },
+    {
+      "radio": "WiFi",
+      "group": "Attacks",
+      "name": "Beacon Spam \u2014 List",
+      "base": "attack -t beacon -l",
+      "token": "attack",
+      "registered": true,
+      "parameters": []
+    },
+    {
+      "radio": "WiFi",
+      "group": "Attacks",
+      "name": "Beacon Spam \u2014 Random",
+      "base": "attack -t beacon -r",
+      "token": "attack",
+      "registered": true,
+      "parameters": []
+    },
+    {
+      "radio": "WiFi",
+      "group": "Attacks",
+      "name": "Beacon Spam \u2014 AP clones",
+      "base": "attack -t beacon -a",
+      "token": "attack",
+      "registered": true,
+      "parameters": []
+    },
+    {
+      "radio": "WiFi",
+      "group": "Attacks",
+      "name": "Rick Roll Beacon",
+      "base": "attack -t rickroll",
+      "token": "attack",
+      "registered": true,
+      "parameters": []
+    },
+    {
+      "radio": "WiFi",
+      "group": "Attacks",
+      "name": "Probe Flood",
+      "base": "attack -t probe",
+      "token": "attack",
+      "registered": true,
+      "parameters": []
+    },
+    {
+      "radio": "WiFi",
+      "group": "Attacks",
+      "name": "Deauth",
+      "base": "attack -t deauth",
+      "token": "attack",
+      "registered": true,
+      "parameters": [
+        {
+          "label": "Channel",
+          "flag": "-c",
+          "kind": "int",
+          "choices": [],
+          "placeholder": "1-14",
+          "default": "",
+          "help": "Lock to this channel.",
+          "source": "",
+          "multi": false
+        },
+        {
+          "label": "Source MAC",
+          "flag": "-s",
+          "kind": "text",
+          "choices": [],
+          "placeholder": "aa:bb:cc:dd:ee:ff",
+          "default": "",
+          "help": "",
+          "source": "",
+          "multi": false
+        },
+        {
+          "label": "Dest MAC",
+          "flag": "-d",
+          "kind": "text",
+          "choices": [],
+          "placeholder": "aa:bb:cc:dd:ee:ff",
+          "default": "",
+          "help": "",
+          "source": "",
+          "multi": false
+        }
+      ]
+    },
+    {
+      "radio": "WiFi",
+      "group": "Attacks",
+      "name": "Bad Msg",
+      "base": "attack -t badmsg",
+      "token": "attack",
+      "registered": true,
+      "parameters": [
+        {
+          "label": "Channel",
+          "flag": "-c",
+          "kind": "int",
+          "choices": [],
+          "placeholder": "1-14",
+          "default": "",
+          "help": "Lock to this channel.",
+          "source": "",
+          "multi": false
+        }
+      ]
+    },
+    {
+      "radio": "WiFi",
+      "group": "Attacks",
+      "name": "SAE Flood",
+      "base": "attack -t sae",
+      "token": "attack",
+      "registered": true,
+      "parameters": []
+    },
+    {
+      "radio": "WiFi",
+      "group": "Attacks",
+      "name": "CSA (Channel Switch)",
+      "base": "attack -t csa",
+      "token": "attack",
+      "registered": true,
+      "parameters": []
+    },
+    {
+      "radio": "WiFi",
+      "group": "Attacks",
+      "name": "Quiet",
+      "base": "attack -t quiet",
+      "token": "attack",
+      "registered": true,
+      "parameters": []
+    },
+    {
+      "radio": "WiFi",
+      "group": "Attacks",
+      "name": "Sleep",
+      "base": "attack -t sleep",
+      "token": "attack",
+      "registered": true,
+      "parameters": [
+        {
+          "label": "Channel",
+          "flag": "-c",
+          "kind": "int",
+          "choices": [],
+          "placeholder": "1-14",
+          "default": "",
+          "help": "Lock to this channel.",
+          "source": "",
+          "multi": false
+        }
+      ]
+    },
+    {
+      "radio": "WiFi",
+      "group": "Attacks",
+      "name": "Evil Portal \u2014 Start",
+      "base": "evilportal -c start",
+      "token": "evilportal",
+      "registered": true,
+      "parameters": [
+        {
+          "label": "HTML file",
+          "flag": "-w",
+          "kind": "text",
+          "choices": [],
+          "placeholder": "portal.html",
+          "default": "",
+          "help": "HTML page on the SD card to serve.",
+          "source": "",
+          "multi": false
+        }
+      ]
+    },
+    {
+      "radio": "WiFi",
+      "group": "Attacks",
+      "name": "Evil Portal \u2014 Set HTML",
+      "base": "evilportal -c sethtml",
+      "token": "evilportal",
+      "registered": true,
+      "parameters": [
+        {
+          "label": "HTML file",
+          "flag": null,
+          "kind": "text",
+          "choices": [],
+          "placeholder": "portal.html",
+          "default": "",
+          "help": "",
+          "source": "",
+          "multi": false
+        }
+      ]
+    },
+    {
+      "radio": "WiFi",
+      "group": "Attacks",
+      "name": "Karma",
+      "base": "karma -p",
+      "token": "karma",
+      "registered": true,
+      "parameters": [
+        {
+          "label": "Probe index",
+          "flag": null,
+          "kind": "int",
+          "choices": [],
+          "placeholder": "e.g. 0",
+          "default": "",
+          "help": "",
+          "source": "",
+          "multi": false
+        }
+      ]
+    },
+    {
+      "radio": "WiFi",
+      "group": "IP / Network",
+      "name": "Join AP",
+      "base": "join",
+      "token": "join",
+      "registered": true,
+      "parameters": [
+        {
+          "label": "AP index",
+          "flag": "-a",
+          "kind": "int",
+          "choices": [],
+          "placeholder": "e.g. 0",
+          "default": "",
+          "help": "",
+          "source": "ap",
+          "multi": false
+        },
+        {
+          "label": "Password",
+          "flag": "-p",
+          "kind": "text",
+          "choices": [],
+          "placeholder": "network password",
+          "default": "",
+          "help": "",
+          "source": "",
+          "multi": false
+        }
+      ]
+    },
+    {
+      "radio": "WiFi",
+      "group": "IP / Network",
+      "name": "Join Status",
+      "base": "join -s",
+      "token": "join",
+      "registered": true,
+      "parameters": []
+    },
+    {
+      "radio": "WiFi",
+      "group": "IP / Network",
+      "name": "Ping Scan",
+      "base": "pingscan",
+      "token": "pingscan",
+      "registered": true,
+      "parameters": []
+    },
+    {
+      "radio": "WiFi",
+      "group": "IP / Network",
+      "name": "ARP Scan",
+      "base": "arpscan",
+      "token": "arpscan",
+      "registered": true,
+      "parameters": [
+        {
+          "label": "Full",
+          "flag": "-f",
+          "kind": "bool",
+          "choices": [],
+          "placeholder": "",
+          "default": "",
+          "help": "Full/aggressive sweep.",
+          "source": "",
+          "multi": false
+        }
+      ]
+    },
+    {
+      "radio": "WiFi",
+      "group": "IP / Network",
+      "name": "Port Scan \u2014 host",
+      "base": "portscan -a -t",
+      "token": "portscan",
+      "registered": true,
+      "parameters": [
+        {
+          "label": "Host index",
+          "flag": null,
+          "kind": "int",
+          "choices": [],
+          "placeholder": "e.g. 2",
+          "default": "",
+          "help": "",
+          "source": "host",
+          "multi": false
+        }
+      ]
+    },
+    {
+      "radio": "WiFi",
+      "group": "IP / Network",
+      "name": "Port Scan \u2014 service",
+      "base": "portscan -s",
+      "token": "portscan",
+      "registered": true,
+      "parameters": [
+        {
+          "label": "Service",
+          "flag": null,
+          "kind": "choice",
+          "choices": [
+            "ssh",
+            "telnet",
+            "dns",
+            "http",
+            "smtp",
+            "https",
+            "rdp"
+          ],
+          "placeholder": "",
+          "default": "",
+          "help": "",
+          "source": "",
+          "multi": false
+        }
+      ]
+    },
+    {
+      "radio": "WiFi",
+      "group": "IP / Network",
+      "name": "Protocol Info",
+      "base": "protocolinfo",
+      "token": "protocolinfo",
+      "registered": true,
+      "parameters": []
+    },
+    {
+      "radio": "WiFi",
+      "group": "Lists & Targets",
+      "name": "List APs",
+      "base": "list -a",
+      "token": "list",
+      "registered": true,
+      "parameters": []
+    },
+    {
+      "radio": "WiFi",
+      "group": "Lists & Targets",
+      "name": "List Stations",
+      "base": "list -s",
+      "token": "list",
+      "registered": true,
+      "parameters": []
+    },
+    {
+      "radio": "WiFi",
+      "group": "Lists & Targets",
+      "name": "List SSIDs",
+      "base": "list -c",
+      "token": "list",
+      "registered": true,
+      "parameters": []
+    },
+    {
+      "radio": "WiFi",
+      "group": "Lists & Targets",
+      "name": "List (advanced)",
+      "base": "list",
+      "token": "list",
+      "registered": true,
+      "parameters": [
+        {
+          "label": "Flag",
+          "flag": null,
+          "kind": "choice",
+          "choices": [
+            "-a",
+            "-s",
+            "-c",
+            "-t",
+            "-i",
+            "-p",
+            "-b",
+            "-f",
+            "-x",
+            "-m"
+          ],
+          "placeholder": "",
+          "default": "-a",
+          "help": "",
+          "source": "",
+          "multi": false
+        }
+      ]
+    },
+    {
+      "radio": "WiFi",
+      "group": "Lists & Targets",
+      "name": "Info",
+      "base": "info",
+      "token": "info",
+      "registered": true,
+      "parameters": [
+        {
+          "label": "AP index",
+          "flag": "-a",
+          "kind": "int",
+          "choices": [],
+          "placeholder": "e.g. 0",
+          "default": "",
+          "help": "",
+          "source": "ap",
+          "multi": false
+        }
+      ]
+    },
+    {
+      "radio": "WiFi",
+      "group": "Lists & Targets",
+      "name": "Select",
+      "base": "select",
+      "token": "select",
+      "registered": true,
+      "parameters": [
+        {
+          "label": "List",
+          "flag": null,
+          "kind": "choice",
+          "choices": [
+            "-a",
+            "-s",
+            "-c"
+          ],
+          "placeholder": "",
+          "default": "-a",
+          "help": "-a APs, -s stations, -c SSIDs.",
+          "source": "",
+          "multi": false
+        },
+        {
+          "label": "Index(es)",
+          "flag": null,
+          "kind": "text",
+          "choices": [],
+          "placeholder": "e.g. 0,2,5",
+          "default": "",
+          "help": "",
+          "source": "auto",
+          "multi": true
+        }
+      ]
+    },
+    {
+      "radio": "WiFi",
+      "group": "Lists & Targets",
+      "name": "Add SSID",
+      "base": "ssid -a",
+      "token": "ssid",
+      "registered": true,
+      "parameters": [
+        {
+          "label": "Name",
+          "flag": "-n",
+          "kind": "text",
+          "choices": [],
+          "placeholder": "MyTestSSID",
+          "default": "",
+          "help": "",
+          "source": "",
+          "multi": false
+        },
+        {
+          "label": "Random count",
+          "flag": "-g",
+          "kind": "int",
+          "choices": [],
+          "placeholder": "e.g. 5",
+          "default": "",
+          "help": "",
+          "source": "",
+          "multi": false
+        }
+      ]
+    },
+    {
+      "radio": "WiFi",
+      "group": "Lists & Targets",
+      "name": "Remove SSID",
+      "base": "ssid -r",
+      "token": "ssid",
+      "registered": true,
+      "parameters": [
+        {
+          "label": "Index",
+          "flag": null,
+          "kind": "int",
+          "choices": [],
+          "placeholder": "e.g. 0",
+          "default": "",
+          "help": "",
+          "source": "ssid",
+          "multi": false
+        }
+      ]
+    },
+    {
+      "radio": "WiFi",
+      "group": "Lists & Targets",
+      "name": "Add AP (manual)",
+      "base": "add -a -b",
+      "token": "add",
+      "registered": true,
+      "parameters": [
+        {
+          "label": "MAC",
+          "flag": null,
+          "kind": "text",
+          "choices": [],
+          "placeholder": "aa:bb:cc:dd:ee:ff",
+          "default": "",
+          "help": "",
+          "source": "",
+          "multi": false
+        },
+        {
+          "label": "Channel",
+          "flag": "-ch",
+          "kind": "int",
+          "choices": [],
+          "placeholder": "1-14",
+          "default": "",
+          "help": "",
+          "source": "",
+          "multi": false
+        },
+        {
+          "label": "SSID",
+          "flag": "-e",
+          "kind": "text",
+          "choices": [],
+          "placeholder": "optional name",
+          "default": "",
+          "help": "",
+          "source": "",
+          "multi": false
+        }
+      ]
+    },
+    {
+      "radio": "WiFi",
+      "group": "Lists & Targets",
+      "name": "Add Station (manual)",
+      "base": "add -c -b",
+      "token": "add",
+      "registered": true,
+      "parameters": [
+        {
+          "label": "MAC",
+          "flag": null,
+          "kind": "text",
+          "choices": [],
+          "placeholder": "aa:bb:cc:dd:ee:ff",
+          "default": "",
+          "help": "",
+          "source": "",
+          "multi": false
+        },
+        {
+          "label": "AP index",
+          "flag": "-ap",
+          "kind": "int",
+          "choices": [],
+          "placeholder": "e.g. 0",
+          "default": "",
+          "help": "",
+          "source": "ap",
+          "multi": false
+        }
+      ]
+    },
+    {
+      "radio": "WiFi",
+      "group": "Lists & Targets",
+      "name": "Clear list",
+      "base": "clearlist",
+      "token": "clearlist",
+      "registered": true,
+      "parameters": [
+        {
+          "label": "Which",
+          "flag": null,
+          "kind": "choice",
+          "choices": [
+            "-a",
+            "-s",
+            "-c"
+          ],
+          "placeholder": "",
+          "default": "-a",
+          "help": "-a APs, -s stations, -c SSIDs.",
+          "source": "",
+          "multi": false
+        }
+      ]
+    },
+    {
+      "radio": "WiFi",
+      "group": "Lists & Targets",
+      "name": "Save list",
+      "base": "save",
+      "token": "save",
+      "registered": true,
+      "parameters": [
+        {
+          "label": "Which",
+          "flag": null,
+          "kind": "choice",
+          "choices": [
+            "-a",
+            "-s"
+          ],
+          "placeholder": "",
+          "default": "-a",
+          "help": "",
+          "source": "",
+          "multi": false
+        }
+      ]
+    },
+    {
+      "radio": "WiFi",
+      "group": "Lists & Targets",
+      "name": "Load list",
+      "base": "load",
+      "token": "load",
+      "registered": true,
+      "parameters": [
+        {
+          "label": "Which",
+          "flag": null,
+          "kind": "choice",
+          "choices": [
+            "-a",
+            "-s"
+          ],
+          "placeholder": "",
+          "default": "-a",
+          "help": "",
+          "source": "",
+          "multi": false
+        }
+      ]
+    },
+    {
+      "radio": "WiFi",
+      "group": "Lists & Targets",
+      "name": "Upload (wardrive)",
+      "base": "upload",
+      "token": "upload",
+      "registered": true,
+      "parameters": [
+        {
+          "label": "Destination",
+          "flag": "-d",
+          "kind": "choice",
+          "choices": [
+            "wdg",
+            "wigle",
+            "both"
+          ],
+          "placeholder": "",
+          "default": "wigle",
+          "help": "",
+          "source": "",
+          "multi": false
+        }
+      ]
+    },
+    {
+      "radio": "WiFi",
+      "group": "MAC Tools",
+      "name": "Random AP MAC",
+      "base": "randapmac",
+      "token": "randapmac",
+      "registered": false,
+      "parameters": []
+    },
+    {
+      "radio": "WiFi",
+      "group": "MAC Tools",
+      "name": "Random Station MAC",
+      "base": "randstamac",
+      "token": "randstamac",
+      "registered": false,
+      "parameters": []
+    },
+    {
+      "radio": "WiFi",
+      "group": "MAC Tools",
+      "name": "Clone AP MAC",
+      "base": "cloneapmac -a",
+      "token": "cloneapmac",
+      "registered": false,
+      "parameters": [
+        {
+          "label": "AP index",
+          "flag": null,
+          "kind": "int",
+          "choices": [],
+          "placeholder": "e.g. 0",
+          "default": "",
+          "help": "",
+          "source": "ap",
+          "multi": false
+        }
+      ]
+    },
+    {
+      "radio": "WiFi",
+      "group": "MAC Tools",
+      "name": "Clone Station MAC",
+      "base": "clonestamac -s",
+      "token": "clonestamac",
+      "registered": false,
+      "parameters": [
+        {
+          "label": "Station index",
+          "flag": null,
+          "kind": "int",
+          "choices": [],
+          "placeholder": "e.g. 0",
+          "default": "",
+          "help": "",
+          "source": "sta",
+          "multi": false
+        }
+      ]
+    },
+    {
+      "radio": "WiFi",
+      "group": "Channel",
+      "name": "Get Channel",
+      "base": "channel",
+      "token": "channel",
+      "registered": true,
+      "parameters": []
+    },
+    {
+      "radio": "WiFi",
+      "group": "Channel",
+      "name": "Set Channel",
+      "base": "channel -s",
+      "token": "channel",
+      "registered": true,
+      "parameters": [
+        {
+          "label": "Channel",
+          "flag": null,
+          "kind": "int",
+          "choices": [],
+          "placeholder": "1-14",
+          "default": "",
+          "help": "",
+          "source": "",
+          "multi": false
+        }
+      ]
+    },
+    {
+      "radio": "Bluetooth",
+      "group": "Recon & Sniff",
+      "name": "Recon BLE",
+      "base": "recon ble",
+      "token": "recon",
+      "registered": true,
+      "parameters": []
+    },
+    {
+      "radio": "Bluetooth",
+      "group": "Recon & Sniff",
+      "name": "Bluetooth Sniff",
+      "base": "sniffbt",
+      "token": "sniffbt",
+      "registered": true,
+      "parameters": [
+        {
+          "label": "Type",
+          "flag": "-t",
+          "kind": "choice",
+          "choices": [
+            "airtag",
+            "flipper",
+            "flock",
+            "meta"
+          ],
+          "placeholder": "",
+          "default": "",
+          "help": "Filter the sniff to a device class.",
+          "source": "",
+          "multi": false
+        }
+      ]
+    },
+    {
+      "radio": "Bluetooth",
+      "group": "Recon & Sniff",
+      "name": "AirTag Sniff",
+      "base": "sniffbt -t airtag",
+      "token": "sniffbt",
+      "registered": true,
+      "parameters": []
+    },
+    {
+      "radio": "Bluetooth",
+      "group": "Recon & Sniff",
+      "name": "Flipper Sniff",
+      "base": "sniffbt -t flipper",
+      "token": "sniffbt",
+      "registered": true,
+      "parameters": []
+    },
+    {
+      "radio": "Bluetooth",
+      "group": "Recon & Sniff",
+      "name": "Card Skimmer Detect",
+      "base": "sniffskim",
+      "token": "sniffskim",
+      "registered": true,
+      "parameters": []
+    },
+    {
+      "radio": "Bluetooth",
+      "group": "Recon & Sniff",
+      "name": "Bluetooth Wardrive",
+      "base": "btwardrive",
+      "token": "btwardrive",
+      "registered": false,
+      "parameters": []
+    },
+    {
+      "radio": "Bluetooth",
+      "group": "Attacks",
+      "name": "Sour Apple",
+      "base": "blespam -t sourapple",
+      "token": "blespam",
+      "registered": true,
+      "parameters": []
+    },
+    {
+      "radio": "Bluetooth",
+      "group": "Attacks",
+      "name": "Apple Juice",
+      "base": "blespam -t applejuice",
+      "token": "blespam",
+      "registered": true,
+      "parameters": []
+    },
+    {
+      "radio": "Bluetooth",
+      "group": "Attacks",
+      "name": "Google Spam",
+      "base": "blespam -t google",
+      "token": "blespam",
+      "registered": true,
+      "parameters": []
+    },
+    {
+      "radio": "Bluetooth",
+      "group": "Attacks",
+      "name": "Samsung Spam",
+      "base": "blespam -t samsung",
+      "token": "blespam",
+      "registered": true,
+      "parameters": []
+    },
+    {
+      "radio": "Bluetooth",
+      "group": "Attacks",
+      "name": "Windows Swift Pair",
+      "base": "blespam -t windows",
+      "token": "blespam",
+      "registered": true,
+      "parameters": []
+    },
+    {
+      "radio": "Bluetooth",
+      "group": "Attacks",
+      "name": "Flipper Spam",
+      "base": "blespam -t flipper",
+      "token": "blespam",
+      "registered": true,
+      "parameters": []
+    },
+    {
+      "radio": "Bluetooth",
+      "group": "Attacks",
+      "name": "BLE Spam \u2014 All",
+      "base": "blespam -t all",
+      "token": "blespam",
+      "registered": true,
+      "parameters": []
+    },
+    {
+      "radio": "Bluetooth",
+      "group": "Attacks",
+      "name": "Find My Spoof",
+      "base": "findmy -t",
+      "token": "findmy",
+      "registered": true,
+      "parameters": [
+        {
+          "label": "Index",
+          "flag": null,
+          "kind": "int",
+          "choices": [],
+          "placeholder": "e.g. 0",
+          "default": "",
+          "help": "",
+          "source": "",
+          "multi": false
+        }
+      ]
+    },
+    {
+      "radio": "Bluetooth",
+      "group": "Attacks",
+      "name": "Spoof AirTag",
+      "base": "spoofat -t",
+      "token": "spoofat",
+      "registered": true,
+      "parameters": [
+        {
+          "label": "Index",
+          "flag": null,
+          "kind": "int",
+          "choices": [],
+          "placeholder": "e.g. 0",
+          "default": "",
+          "help": "",
+          "source": "",
+          "multi": false
+        }
+      ]
+    },
+    {
+      "radio": "Device",
+      "group": "System",
+      "name": "Firmware Help",
+      "base": "help",
+      "token": "help",
+      "registered": true,
+      "parameters": []
+    },
+    {
+      "radio": "Device",
+      "group": "System",
+      "name": "Show Settings",
+      "base": "settings",
+      "token": "settings",
+      "registered": true,
+      "parameters": []
+    },
+    {
+      "radio": "Device",
+      "group": "System",
+      "name": "Change Setting",
+      "base": "settings -s",
+      "token": "settings",
+      "registered": true,
+      "parameters": [
+        {
+          "label": "Setting",
+          "flag": null,
+          "kind": "text",
+          "choices": [],
+          "placeholder": "e.g. ForcePMKID",
+          "default": "",
+          "help": "",
+          "source": "",
+          "multi": false
+        },
+        {
+          "label": "State",
+          "flag": null,
+          "kind": "choice",
+          "choices": [
+            "enable",
+            "disable"
+          ],
+          "placeholder": "",
+          "default": "enable",
+          "help": "",
+          "source": "",
+          "multi": false
+        }
+      ]
+    },
+    {
+      "radio": "Device",
+      "group": "System",
+      "name": "Reset Settings",
+      "base": "settings -r",
+      "token": "settings",
+      "registered": true,
+      "parameters": []
+    },
+    {
+      "radio": "Device",
+      "group": "System",
+      "name": "Reboot",
+      "base": "reboot",
+      "token": "reboot",
+      "registered": true,
+      "parameters": []
+    },
+    {
+      "radio": "Device",
+      "group": "System",
+      "name": "Update \u2014 SD",
+      "base": "update -s",
+      "token": "update",
+      "registered": true,
+      "parameters": []
+    },
+    {
+      "radio": "Device",
+      "group": "System",
+      "name": "Update \u2014 Web",
+      "base": "update -w",
+      "token": "update",
+      "registered": true,
+      "parameters": []
+    },
+    {
+      "radio": "Device",
+      "group": "Storage (SD)",
+      "name": "List Directory",
+      "base": "ls",
+      "token": "ls",
+      "registered": true,
+      "parameters": [
+        {
+          "label": "Path",
+          "flag": null,
+          "kind": "text",
+          "choices": [],
+          "placeholder": "/",
+          "default": "/",
+          "help": "",
+          "source": "",
+          "multi": false
+        }
+      ]
+    },
+    {
+      "radio": "Device",
+      "group": "Storage (SD)",
+      "name": "Backup SPIFFS",
+      "base": "backupspiffs",
+      "token": "backupspiffs",
+      "registered": true,
+      "parameters": []
+    },
+    {
+      "radio": "Device",
+      "group": "Storage (SD)",
+      "name": "Backup Status",
+      "base": "backupstatus",
+      "token": "backupstatus",
+      "registered": true,
+      "parameters": []
+    },
+    {
+      "radio": "Device",
+      "group": "Storage (SD)",
+      "name": "Restore SPIFFS",
+      "base": "restorespiffs",
+      "token": "restorespiffs",
+      "registered": true,
+      "parameters": []
+    },
+    {
+      "radio": "Device",
+      "group": "LEDs & Display",
+      "name": "LED Color",
+      "base": "led -s",
+      "token": "led",
+      "registered": true,
+      "parameters": [
+        {
+          "label": "Hex color",
+          "flag": null,
+          "kind": "text",
+          "choices": [],
+          "placeholder": "e.g. 00FF88",
+          "default": "",
+          "help": "",
+          "source": "",
+          "multi": false
+        }
+      ]
+    },
+    {
+      "radio": "Device",
+      "group": "LEDs & Display",
+      "name": "LED Rainbow",
+      "base": "led -p rainbow",
+      "token": "led",
+      "registered": true,
+      "parameters": []
+    },
+    {
+      "radio": "Device",
+      "group": "LEDs & Display",
+      "name": "Brightness",
+      "base": "brightness -s",
+      "token": "brightness",
+      "registered": true,
+      "parameters": [
+        {
+          "label": "Level",
+          "flag": null,
+          "kind": "choice",
+          "choices": [
+            "0",
+            "1",
+            "2",
+            "3",
+            "4",
+            "5",
+            "6",
+            "7",
+            "8",
+            "9"
+          ],
+          "placeholder": "",
+          "default": "5",
+          "help": "",
+          "source": "",
+          "multi": false
+        }
+      ]
+    },
+    {
+      "radio": "Device",
+      "group": "LEDs & Display",
+      "name": "Brightness Cycle",
+      "base": "brightness -c cycle",
+      "token": "brightness",
+      "registered": true,
+      "parameters": []
+    },
+    {
+      "radio": "Device",
+      "group": "GPS",
+      "name": "GPS Data",
+      "base": "gpsdata",
+      "token": "gpsdata",
+      "registered": true,
+      "parameters": []
+    },
+    {
+      "radio": "Device",
+      "group": "GPS",
+      "name": "GPS Query",
+      "base": "gps",
+      "token": "gps",
+      "registered": true,
+      "parameters": [
+        {
+          "label": "Field",
+          "flag": "-g",
+          "kind": "choice",
+          "choices": [
+            "fix",
+            "sat",
+            "lon",
+            "lat",
+            "alt",
+            "date",
+            "accuracy",
+            "text",
+            "nmea"
+          ],
+          "placeholder": "",
+          "default": "fix",
+          "help": "",
+          "source": "",
+          "multi": false
+        }
+      ]
+    },
+    {
+      "radio": "Device",
+      "group": "GPS",
+      "name": "GPS Tracking Mode",
+      "base": "gps -t",
+      "token": "gps",
+      "registered": true,
+      "parameters": []
+    },
+    {
+      "radio": "Device",
+      "group": "GPS",
+      "name": "NMEA Stream",
+      "base": "nmea",
+      "token": "nmea",
+      "registered": true,
+      "parameters": []
+    },
+    {
+      "radio": "Device",
+      "group": "GPS",
+      "name": "GPS POI",
+      "base": "gpspoi",
+      "token": "gpspoi",
+      "registered": true,
+      "parameters": [
+        {
+          "label": "Action",
+          "flag": null,
+          "kind": "choice",
+          "choices": [
+            "-s",
+            "-m",
+            "-e"
+          ],
+          "placeholder": "",
+          "default": "-m",
+          "help": "-s start, -m mark, -e end.",
+          "source": "",
+          "multi": false
+        }
+      ]
+    },
+    {
+      "radio": "Device",
+      "group": "GPS",
+      "name": "GPS Tracker",
+      "base": "gpstracker -c",
+      "token": "gpstracker",
+      "registered": false,
+      "parameters": [
+        {
+          "label": "Action",
+          "flag": null,
+          "kind": "choice",
+          "choices": [
+            "start",
+            "stop"
+          ],
+          "placeholder": "",
+          "default": "start",
+          "help": "",
+          "source": "",
+          "multi": false
+        }
+      ]
+    },
+    {
+      "radio": "Device",
+      "group": "Hunt",
+      "name": "Fox Hunt",
+      "base": "foxhunt",
+      "token": "foxhunt",
+      "registered": true,
+      "parameters": [
+        {
+          "label": "Mode",
+          "flag": null,
+          "kind": "choice",
+          "choices": [
+            "-w",
+            "-s",
+            "-b",
+            "-t",
+            "-f",
+            "-p",
+            "-m"
+          ],
+          "placeholder": "",
+          "default": "-w",
+          "help": "",
+          "source": "",
+          "multi": false
+        },
+        {
+          "label": "Index / args",
+          "flag": null,
+          "kind": "text",
+          "choices": [],
+          "placeholder": "e.g. 0",
+          "default": "",
+          "help": "",
+          "source": "",
+          "multi": false
+        }
+      ]
+    }
+  ]
+}
