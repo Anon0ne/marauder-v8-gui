@@ -23,4 +23,4 @@ python3 -c 'import sys; assert (3,10) <= sys.version_info[:2] < (3,14), sys.vers
 python3 -m venv .venv
 .venv/bin/python -m pip install -r requirements.txt
 .venv/bin/python -m pip check
-exec .venv/bin/python marauder_gui.py
+exec .venv/bin/python marauder_workspace.py

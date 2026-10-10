@@ -1,4 +1,4 @@
-param([switch]$BuildOnly)
+param([switch]$BuildOnly, [switch]$EnableNPU)
 $ErrorActionPreference = 'Stop'
 Set-Location $PSScriptRoot
 function Find-Python {
@@ -73,6 +73,10 @@ Write-Host 'Checking application and build dependencies...'
 if ($LASTEXITCODE -ne 0) { throw 'Dependency installation failed; check internet access and pip output.' }
 & $py -m pip check
 if ($LASTEXITCODE -ne 0) { throw 'Dependency conflict detected; build stopped.' }
+if ($EnableNPU) {
+  & $py -m pip install -r requirements-npu.txt
+  if ($LASTEXITCODE -ne 0) { throw 'NPU dependency installation failed.' }
+}
 & $py -c 'import serial, esptool, PyInstaller'
 if ($LASTEXITCODE -ne 0) { throw 'Required module import verification failed.' }
 Write-Host 'Verified: pyserial, esptool, PyInstaller'
@@ -92,7 +96,7 @@ foreach ($dir in @($desktop,$start)) {
   $lnk=$wsh.CreateShortcut((Join-Path $dir 'Marauder V8 Control.lnk'))
   $lnk.TargetPath=Join-Path $install 'MarauderV8-Control.exe'
   $lnk.WorkingDirectory=$install
-  $lnk.Description='Marauder V8 Control GUI'
+  $lnk.Description='Marauder V8 Workspace 0.4.0b Beta'
   $lnk.IconLocation=Join-Path $install 'MarauderV8-Control.exe'
   $lnk.Save()
 }

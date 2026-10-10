@@ -1,143 +1,62 @@
-# Marauder V8 — Control GUI
+# Marauder V8 Control — 0.4.0b Beta
 
-A clean desktop GUI + CLI to drive an ESP32 Marauder (V8 fork) over USB serial.
+## Major GUI change — community beta testing
 
-> **Beta — testers and feature requests welcome.** This is an early (v0.1.0-beta)
-> release. If you try it, I'd love your feedback: please
-> [open an issue](https://github.com/Anon0ne/marauder-v8-gui/issues) for bugs,
-> or use the **Feature request** template to suggest ideas. Pasting the output of
-> your firmware's `help` command (or any command that renders oddly) is especially
-> useful, since command syntax varies between Marauder builds.
+The GUI has changed substantially for 0.4.0 Beta. Please test navigation, serial connection, continuous surveys, capture/export tools and AI controls, and report usability feedback or regressions through GitHub issues. We are not yet sure whether we will keep this interface; community feedback will help decide its future.
 
-## Download
+![Newest Workspace GUI](docs/screenshots/workspace-beta.png)
 
-- **Windows (no Python needed):** grab `MarauderV8-Control.exe` from the
-  [latest release](https://github.com/Anon0ne/marauder-v8-gui/releases/latest).
-- **Linux / macOS:** the app is pure Python + Tkinter, so it runs from source —
-  download the release's *Source code* archive (or clone), then `./run.sh`
-  (installs deps on first run). A prebuilt Windows `.exe` can't be cross-built for
-  Linux; running from source is the supported path and works identically.
-- **From source (any OS):** see below.
-
-## Tools menu (v0.3)
-
-- **Live RF Dashboard** — stat tiles, per-channel bar chart, signal-sorted AP table,
-  2.4/5 GHz split, and a GPS readout. Populates live from Recon/Scan.
-- **Automated Survey** — passive recon loop that dedupes devices over time with
-  privacy controls (mask MACs / omit SSIDs) and JSON / CSV / KML export.
-- **AI Assistant (Ollama)** — optional local analysis; remembers context, can run
-  *passive* commands on request, and queues any transmitting command for your
-  one-click approval. It never selects targets or fires attacks on its own.
-
-## Install & run
-
-### Manual or automated installation (v0.3.2)
-
-- **Windows:** run the EXE from the Windows ZIP manually, or double-click
-  `BUILD_AND_INSTALL.cmd` to install missing Python/dependencies, build the EXE,
-  and create shortcuts. See [WINDOWS_INSTALL.txt](WINDOWS_INSTALL.txt) for
-  manual source setup and build commands.
-- **Linux:** run `bash INSTALL_AND_RUN.sh` for automated setup and launch, or
-  follow [LINUX_INSTALL.txt](LINUX_INSTALL.txt) for manual setup. The Linux ZIP
-  contains Python source; the launcher installs missing system prerequisites
-  automatically on Debian/Ubuntu.
+The screenshot uses illustrative data with the device disconnected.
 
 
-```bash
-pip install pyserial
-python marauder_gui.py
+A desktop workspace for operating ESP32 Marauder V8 over USB serial, reviewing wireless observations, recording sessions, and using optional local AI analysis.
+
+Project: https://github.com/Anon0ne/marauder-v8-gui
+
+## Features
+
+- Dark Workspace interface with persistent navigation, embedded tools, stable target selection and a side console.
+- Live Wi-Fi and BLE inventories, RF dashboard, and continuous passive Wi-Fi survey. Start sends reconnaissance once; Stop ends it once. Inventory refresh does not restart capture.
+- Read-only SD browsing, PCAP inspection, JSON/CSV inventory exports and GPS-based KML placemarks when a valid GPS fix exists.
+- JSONL RX/TX session recording and receive-only offline replay.
+- Firmware flashing with esptool and USB serial connection in a background worker.
+- Local Ollama conversation, explicit Intel NPU inference, and optional Hybrid mode: NPU observation summaries run separately from Ollama GPU conversation.
+- Bounded serial input, password redaction and a strict AI command allowlist. Unverified AI suggestions are never copied into Raw or executed.
+
+## Windows
+
+For the Windows portable ZIP, extract everything and launch MarauderV8-Control.exe. Python is not required for the executable. Optional AI models are separate downloads.
+
+From source, automated setup/build: double-click BUILD_AND_INSTALL.cmd. Manual setup: install Python 3.10–3.13 with Tkinter, create a virtual environment, install requirements.txt, then run marauder_workspace.py.
+
+```powershell
+py -3.12 -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+.\.venv\Scripts\python.exe marauder_workspace.py
 ```
 
-Only `pyserial` is required; the GUI uses Python's built-in `tkinter`.
+Optional NPU: double-click SETUP_NPU.cmd, then RUN_NPU.cmd. The wrapper permits its setup script for that process without changing system execution policy. See NPU_SETUP.md.
 
-## Files
+## Linux
 
-| File | Purpose |
-|------|---------|
-| `marauder_gui.py` | The GUI. Run this. |
-| `marauder_commands.py` | The command catalog (grouped by radio). **Edit this to add/fix commands.** |
-| `marauder.py` | Serial layer + a standalone CLI (`ports`, `fwhelp`, `send`, `monitor`, `scan`). |
-| `marauder_pcap.py` | Zero-dependency `.pcap` inspector (also a CLI). |
-| `logs/` | CSV scan logs are written here. |
+The Linux ZIP contains source, not a Windows executable. Install Python, Tkinter and venv support through your distribution, then use `bash INSTALL_AND_RUN.sh`. For manual installation:
 
-## GUI quick tour
-
-- **Top bar** — live port dropdown, baud, Connect, and **Auto-connect** (grabs the
-  Marauder the moment it's plugged in; detects CP210x / CH340 / FTDI / native-USB).
-- **Left tree** — every command, grouped like the on-device menu: WiFi, Bluetooth,
-  Device. Attack commands are marked ⚠.
-- **Builder** — pick a command, fill the parameters; the exact command string is shown
-  and editable, with a **Send** button. The command's **Help** sits right underneath.
-- **Target pickers** — index fields (Join AP, Select, Info, Clone AP/Station MAC,
-  Remove SSID, Add Station) show a live list of scanned APs/stations/SSIDs below the
-  field. **Double-click a row to fill it** (Select appends for multi-target). Hit
-  **↻ Refresh** to pull the latest list from the device (`list -a/-s/-c`).
-- **Stop** — a red Stop button appears on the builder page for any long-running
-  command (scan/sniff/attack/spam/recon), and a persistent one sits in the toolbar.
-  It sends `recon stop` after a recon, `stopscan` otherwise.
-- **Console / Event Log** — two tabs. The console shows live serial output with a
-  Raw send box and **Log scans → CSV** (parses AP/station rows into `logs/scan_*.csv`).
-  The Event Log records every start/stop/connect with timestamps and mirrors them to
-  `logs/events_*.log`.
-- **Export** menu (console header):
-  - **Nmap target list (-iL)** — host IPs discovered by ARP/ping/port scans are
-    collected automatically; export them to `logs/nmap_targets_*.txt` and run
-    `nmap -iL <file> -sV`.
-  - **Console log (.txt)** — dump the raw serial session.
-  - **Open capture in Wireshark** — same as the PCAP Inspector.
-- **PCAP Inspector** — open a `.pcap` pulled from the SD card for a summary, and
-  launch it in Wireshark if installed. (Wireshark reads the device's `.pcap`
-  directly — scans are host lists, not packets, so they export to Nmap instead.)
-
-## CLI (no GUI)
-
-```bash
-python marauder.py ports            # list serial ports
-python marauder.py fwhelp           # dump the firmware's command list
-python marauder.py monitor          # interactive console
-python marauder.py send "list -a"   # one command
-python marauder_pcap.py summary capture.pcap
+```sh
+python3 -m venv .venv
+.venv/bin/python -m pip install -r requirements.txt
+.venv/bin/python marauder_workspace.py
 ```
 
-## Captive portal
+Serial permissions may require membership in your distribution's serial-access group. Linux GUI and NPU hardware execution have not been validated on this Windows machine.
 
-[`portals/default/index.html`](portals/) is the default captive-portal page for
-the firmware's Evil Portal feature. It's an **awareness page, not a credential
-trap** — it collects nothing, and instead shows anyone who connects why trusting
-an unknown open network is risky. See [`portals/README.md`](portals/README.md).
+## AI and accelerator behavior
 
-## Firmware updater
+Intel NPU requires a supported Intel driver, OpenVINO dependencies, and the separate pinned Phi-3.5 Mini model download. There is no silent CPU fallback. Phi-3.5 is a small model: treat its conclusions as suggestions, verify against firmware help, and use Ollama for more demanding conversation.
 
-Toolbar **Firmware…** opens the updater for the **Marauder V8 (ESP32‑C5)**. It can
-fetch and download the latest official `_v8` build from GitHub (or take a local
-`.bin`), read chip info, and flash over serial via esptool. The chip is
-**auto-detected**, so the architecture can't be set wrong. Keep the device plugged
-in while flashing. This release targets the V8 only; other board builds come later.
+Hybrid selects an Ollama model (default llama3.1:8b) and an NPU folder. Verify checks NPU loading and reported Ollama GPU memory use. NPU summaries refresh on questions, at most once per 30 seconds. An exact matching cached summary can reduce the observation context sent to the GPU; otherwise the original observations are used. Jobs can overlap; this does not split one model across both devices. Speed or power savings depend on workload.
 
-## Security / hardening
+AI output is untrusted. Only exact documented observation commands qualify for optional automatic execution. Unknown commands, transmitting commands and host utilities are shown as unverified text. Handshake capture alone does not prove network security.
 
-- WiFi passwords (`-p …`) are **redacted** in the console, event log, and exports.
-- `send()` rejects embedded control characters (no multi-command injection).
-- Console and serial buffers are **bounded** against high-volume floods.
-- The PCAP reader validates record lengths before trusting them.
+Recordings and exports can contain private network observations. Review them before sharing. See SECURITY.md, CONTRIBUTING.md, CODE_OF_CONDUCT.md and SUPPORT.md.
 
-## Firmware note
-
-The catalog was built from *this* device's live `help` output. If you flash a
-different build and syntax changes, run **Device → Firmware Help** and edit
-`marauder_commands.py` to match.
-
-## Roadmap (v0.3)
-
-- Live RF dashboard — discovered APs, channels, signal strength, security modes, BLE
-- Automated passive wireless survey — dedup, GPS correlation, JSON/CSV/KML export
-- Optional local AI (Ollama) analysis of sanitized findings
-
-These will open as their own pages from a menu, to keep the main window uncluttered.
-
-## Authorized use only
-
-Active commands (deauth, beacon/BLE spam, Evil Portal, Karma, CSA/SAE, etc.)
-transmit and disrupt. Run them **only** against devices and networks you own or
-have explicit written permission to test. You are responsible for compliance with
-local law.
+Experimental NPU/Hybrid limitation: the latest NPU conversational retest returned a device-lost driver error. NPU answer quality and concurrent execution remain unverified for this beta; Ollama can be used independently.

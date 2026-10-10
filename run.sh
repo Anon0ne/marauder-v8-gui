@@ -19,4 +19,4 @@ if ! "$PY" -c "import serial" 2>/dev/null; then
 fi
 
 # On Linux your user usually needs serial access:  sudo usermod -a -G dialout $USER  (then re-login)
-exec "$PY" marauder_gui.py
+exec "$PY" marauder_workspace.py

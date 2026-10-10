@@ -51,7 +51,9 @@ class Marauder:
         can never smuggle multiple commands onto the wire.
         """
         cmd = command.strip()
-        if any(ord(ch) < 0x20 for ch in cmd):
+        if len(cmd) > 4096:
+            raise ValueError('command exceeds 4096 characters')
+        if any(ord(ch) < 0x20 or ord(ch) == 0x7f for ch in cmd):
             raise ValueError("command contains control characters (possible injection)")
         self.ser.write((cmd + "\n").encode("utf-8", "replace"))
         self.ser.flush()
@@ -59,8 +61,14 @@ class Marauder:
     def read_available(self) -> str:
         """Drain whatever is currently in the input buffer."""
         chunks = []
-        while self.ser.in_waiting:
-            chunks.append(self.ser.read(self.ser.in_waiting))
+        remaining = 65536
+        deadline = time.monotonic() + 0.15
+        while remaining and time.monotonic() < deadline and self.ser.in_waiting:
+            chunk = self.ser.read(min(self.ser.in_waiting, remaining))
+            if not chunk:
+                break
+            chunks.append(chunk)
+            remaining -= len(chunk)
             time.sleep(0.02)
         return b"".join(chunks).decode("utf-8", "replace")
 

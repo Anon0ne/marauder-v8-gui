@@ -1,39 +1,42 @@
 name: Bug report
-description: Something isn't working in the GUI or CLI
+description: Report a reproducible application problem
 title: "[Bug]: "
-labels: ["bug"]
 body:
   - type: markdown
     attributes:
-      value: Thanks for testing the beta! Please fill in what you can.
-  - type: textarea
-    id: what-happened
-    attributes:
-      label: What happened?
-      description: What did you do, what did you expect, and what happened instead?
-      placeholder: Selected WiFi > Recon WiFi, hit Send, and the console stayed blank.
-    validations:
-      required: true
-  - type: input
-    id: firmware
-    attributes:
-      label: Marauder firmware / board
-      description: Firmware build and board (e.g. CH340 V8). If unsure, paste the top of the `help` output.
-      placeholder: ESP32 Marauder V8 (CH340)
-  - type: textarea
-    id: output
-    attributes:
-      label: Relevant console / event-log output
-      description: Paste the lines around the problem. Redact anything sensitive.
-      render: text
+      value: "Report security vulnerabilities privately using SECURITY.md. Remove credentials and identifying network data from all examples."
   - type: input
     id: version
     attributes:
-      label: App version
-      description: Shown in the title bar and the About dialog.
-      placeholder: v0.1.0-beta
+      label: Application version or commit
+    validations:
+      required: true
   - type: input
-    id: os
+    id: environment
     attributes:
-      label: OS
-      placeholder: Windows 11
+      label: OS and installation method
+      description: "Include OS version, source or EXE, and Python version if applicable."
+    validations:
+      required: true
+  - type: input
+    id: hardware
+    attributes:
+      label: Board and firmware version
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to reproduce
+      description: "Use a minimal example with fabricated identifiers."
+    validations:
+      required: true
+  - type: textarea
+    id: behavior
+    attributes:
+      label: Expected and actual behavior
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Sanitized error output or screenshots
+      description: "For AI/NPU errors, include engine, model, runtime, driver, and execution device."

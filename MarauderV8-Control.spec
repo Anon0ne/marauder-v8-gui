@@ -8,8 +8,19 @@ tmp_ret = collect_all('esptool')
 datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
 
 
+try:
+    import openvino_genai
+except ImportError:
+    pass
+else:
+    for module in ('openvino', 'openvino_genai', 'openvino_tokenizers'):
+        extra_datas, extra_binaries, extra_imports = collect_all(module)
+        datas += extra_datas
+        binaries += extra_binaries
+        hiddenimports += extra_imports
+
 a = Analysis(
-    ['marauder_gui.py'],
+    ['marauder_workspace.py'],
     pathex=['.'],
     binaries=binaries,
     datas=datas,

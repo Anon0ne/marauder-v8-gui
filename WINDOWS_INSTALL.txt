@@ -1,28 +1,16 @@
-Marauder V8 Control GUI v0.3.2 - Windows
+Marauder V8 Control 0.4.0b Beta — Windows
 
-MANUAL INSTALL (standalone EXE)
-Extract MarauderV8-v0.3.2-Windows.zip and run MarauderV8-Control.exe.
-Python is not required. Create a shortcut manually if desired.
+PORTABLE EXE
+Extract the Windows ZIP and launch MarauderV8-Control.exe. No Python required.
 
-AUTOMATED INSTALL / BUILD FROM SOURCE
-Double-click BUILD_AND_INSTALL.cmd in the extracted folder.
-The script locates Python 3.10-3.13, installs Python 3.12 if missing,
-creates an isolated build environment, installs required dependencies,
-checks compatibility, builds the EXE, and creates Desktop and Start Menu shortcuts.
-Internet access is required for missing Python, dependencies, and build tools.
-The app is installed under %LOCALAPPDATA%\Programs\MarauderV8-Control.
+AUTOMATED SOURCE BUILD
+Double-click BUILD_AND_INSTALL.cmd. It checks for Python 3.10-3.13 first, installs Python 3.12 automatically if missing (winget or verified official installer), builds the executable, and creates Desktop and Start Menu shortcuts. Internet access is required for Python and dependencies. No administrator privileges are normally required.
 
-MANUAL RUN FROM SOURCE
-Install Python 3.10-3.13 from python.org with Tkinter and pip enabled.
-Open PowerShell in the extracted source folder and run:
-  py -3 -m venv .venv
-  .\.venv\Scripts\python.exe -m pip install -r requirements.txt
-  .\.venv\Scripts\python.exe marauder_gui.py
+The installer automatically checks and installs missing or outdated Python packages (pyserial, esptool, PyInstaller and their dependencies), validates package compatibility, then builds the EXE. Internet access required for missing packages.
 
-MANUAL EXE BUILD
-After the manual source setup, run:
-  .\.venv\Scripts\python.exe -m pip install "pyinstaller>=6.0,<7"
-  .\.venv\Scripts\python.exe -m PyInstaller --noconfirm --clean MarauderV8-Control.spec
-The executable is created at dist\MarauderV8-Control.exe.
+MANUAL SOURCE INSTALL
+py -3.12 -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+.\.venv\Scripts\python.exe marauder_workspace.py
 
-Made by Justin Funderburk - justin@bizhostnc.com
+Optional NPU setup: SETUP_NPU.cmd, then RUN_NPU.cmd. See NPU_SETUP.md for experimental limitations.

@@ -1,4 +1,4 @@
-Marauder V8 Control GUI v0.3.2 - Linux (Python source distribution)
+Marauder V8 Control GUI v0.4.0b Beta - Linux (Python source distribution)
 
 AUTOMATED SETUP AND LAUNCH
 Extract the Linux ZIP, open a terminal in that folder, and run:
@@ -12,7 +12,7 @@ MANUAL SETUP (Debian/Ubuntu)
   sudo apt-get install python3 python3-tk python3-venv
   python3 -m venv .venv
   .venv/bin/python -m pip install -r requirements.txt
-  .venv/bin/python marauder_gui.py
+  .venv/bin/python marauder_workspace.py
 Use Python 3.10-3.13. Other distributions use their own package manager.
 
 If serial access is denied on Debian/Ubuntu:
