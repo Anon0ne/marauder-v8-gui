@@ -31,6 +31,18 @@ A clean desktop GUI + CLI to drive an ESP32 Marauder (V8 fork) over USB serial.
 
 ## Install & run
 
+### Manual or automated installation (v0.3.2)
+
+- **Windows:** run the EXE from the Windows ZIP manually, or double-click
+  `BUILD_AND_INSTALL.cmd` to install missing Python/dependencies, build the EXE,
+  and create shortcuts. See [WINDOWS_INSTALL.txt](WINDOWS_INSTALL.txt) for
+  manual source setup and build commands.
+- **Linux:** run `bash INSTALL_AND_RUN.sh` for automated setup and launch, or
+  follow [LINUX_INSTALL.txt](LINUX_INSTALL.txt) for manual setup. The Linux ZIP
+  contains Python source; the launcher installs missing system prerequisites
+  automatically on Debian/Ubuntu.
+
+
 ```bash
 pip install pyserial
 python marauder_gui.py

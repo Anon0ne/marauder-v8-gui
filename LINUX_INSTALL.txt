@@ -1,0 +1,23 @@
+Marauder V8 Control GUI v0.3.2 - Linux (Python source distribution)
+
+AUTOMATED SETUP AND LAUNCH
+Extract the Linux ZIP, open a terminal in that folder, and run:
+  bash INSTALL_AND_RUN.sh
+The launcher creates an isolated virtual environment and installs dependencies.
+On Debian/Ubuntu it installs missing Python, Tkinter, or venv packages using sudo apt-get.
+On other distributions, install these prerequisites using your package manager first.
+Internet access is required when installing packages.
+
+MANUAL SETUP (Debian/Ubuntu)
+  sudo apt-get install python3 python3-tk python3-venv
+  python3 -m venv .venv
+  .venv/bin/python -m pip install -r requirements.txt
+  .venv/bin/python marauder_gui.py
+Use Python 3.10-3.13. Other distributions use their own package manager.
+
+If serial access is denied on Debian/Ubuntu:
+  sudo usermod -aG dialout "$USER"
+Log out and back in afterward. Other distributions may use a different device group.
+
+This is a source distribution, not a standalone Linux executable.
+Made by Justin Funderburk - justin@bizhostnc.com
