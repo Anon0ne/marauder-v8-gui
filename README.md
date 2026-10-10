@@ -2,6 +2,19 @@
 
 A clean desktop GUI + CLI to drive an ESP32 Marauder (V8 fork) over USB serial.
 
+> **Beta — testers and feature requests welcome.** This is an early (v0.1.0-beta)
+> release. If you try it, I'd love your feedback: please
+> [open an issue](https://github.com/Anon0ne/marauder-v8-gui/issues) for bugs,
+> or use the **Feature request** template to suggest ideas. Pasting the output of
+> your firmware's `help` command (or any command that renders oddly) is especially
+> useful, since command syntax varies between Marauder builds.
+
+## Download
+
+- **Windows (no Python needed):** grab `MarauderV8-Control.exe` from the
+  [latest release](https://github.com/Anon0ne/marauder-v8-gui/releases/latest).
+- **From source:** see below.
+
 ## Install & run
 
 ```bash

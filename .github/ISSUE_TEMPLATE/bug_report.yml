@@ -1,0 +1,39 @@
+name: Bug report
+description: Something isn't working in the GUI or CLI
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: Thanks for testing the beta! Please fill in what you can.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What did you do, what did you expect, and what happened instead?
+      placeholder: Selected WiFi > Recon WiFi, hit Send, and the console stayed blank.
+    validations:
+      required: true
+  - type: input
+    id: firmware
+    attributes:
+      label: Marauder firmware / board
+      description: Firmware build and board (e.g. CH340 V8). If unsure, paste the top of the `help` output.
+      placeholder: ESP32 Marauder V8 (CH340)
+  - type: textarea
+    id: output
+    attributes:
+      label: Relevant console / event-log output
+      description: Paste the lines around the problem. Redact anything sensitive.
+      render: text
+  - type: input
+    id: version
+    attributes:
+      label: App version
+      description: Shown in the title bar and the About dialog.
+      placeholder: v0.1.0-beta
+  - type: input
+    id: os
+    attributes:
+      label: OS
+      placeholder: Windows 11
