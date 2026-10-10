@@ -33,7 +33,7 @@ import datetime as _dt
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 
-__version__ = "0.1.0"
+__version__ = "0.2.0-dev"
 AUTHOR = "Justin Funderburk"
 CONTACT = "justin@bizhostnc.com"
 
@@ -85,23 +85,34 @@ _IP_RE = re.compile(r"\b(?:(?:25[0-5]|2[0-4]\d|1?\d?\d)\.){3}(?:25[0-5]|2[0-4]\d
 
 
 def parse_scan_line(line: str):
-    """Best-effort extraction of a scan row. Returns dict or None."""
+    """Best-effort extraction of a scan row. Returns dict or None.
+
+    Handles both the `list` format and the live `recon` format, e.g.
+    `-81 Ch: 153 10:f0:68:9c:ad:e0 ESSID: LuxSpeed 11 15` (leading RSSI,
+    `ESSID:` label, and two trailing counter columns).
+    """
     mac = _MAC_RE.search(line)
-    rssi = _RSSI_RE.search(line)
+    rssi_m = _RSSI_RE.search(line)
+    rssi = rssi_m.group(1) if rssi_m else ""
+    if not rssi:
+        lead = re.match(r"\s*(-\d{1,3})\b", line)  # recon rows begin with the RSSI
+        if lead:
+            rssi = lead.group(1)
     if not mac and not rssi:
         return None  # not a result row
-    ssid = _SSID_RE.search(line)
+    ssid = _SSID_RE.search(line)   # also matches the ESSID: label
     ch = _CH_RE.search(line)
     idx = re.match(r"\s*\[?(\d+)\]?[:\s]", line)
     # Guard: when the SSID is hidden/empty the loose regex can swallow the
     # following field (e.g. "BSSID: ..") — cut at the first known field word.
     ssid_val = ssid.group(1).strip() if ssid else ""
     ssid_val = re.split(r"\b(?:BSSID|RSSI|CH|Channel)\b", ssid_val)[0].strip(" :=\t")
+    ssid_val = re.sub(r"\s+\d+\s+\d+\s*$", "", ssid_val)  # drop recon trailing counts
     return {
         "ssid": ssid_val,
         "bssid": mac.group(1) if mac else "",
         "channel": ch.group(1) if ch else "",
-        "rssi": rssi.group(1) if rssi else "",
+        "rssi": rssi,
         "index": idx.group(1) if idx else "",
     }
 
@@ -110,7 +121,8 @@ def parse_scan_line(line: str):
 # A Stop button is surfaced for these and sending one logs a START event.
 RUNNING_PREFIXES = ("sniff", "attack", "blespam", "scanall", "wardrive",
                     "mactrack", "packetcount", "nmea", "karma", "evilportal",
-                    "arpscan", "pingscan", "portscan", "foxhunt")
+                    "arpscan", "pingscan", "portscan", "foxhunt",
+                    "sigmon", "btwardrive")
 
 
 def command_runs(base: str) -> bool:
@@ -452,6 +464,65 @@ class MarauderGUI(tk.Tk):
         self.eventlog.tag_configure("conn", foreground=PALETTE["ok"])
         self.eventlog.tag_configure("info", foreground=PALETTE["muted"])
         self.eventlog.configure(state="disabled")
+
+        self._build_targets_tab(nb)
+
+    # ---- Targets tab (multi-select → select -a/-s) ----------------------
+    def _build_targets_tab(self, nb):
+        tg = ttk.Frame(nb, style="Card.TFrame")
+        nb.add(tg, text="Targets")
+        head = ttk.Frame(tg, style="Card.TFrame")
+        head.pack(fill="x", padx=10, pady=(8, 2))
+        ttk.Label(head, text="Highlight rows (Ctrl/Shift-click), then Select to target them",
+                  style="CardMuted.TLabel").pack(side="left")
+        ttk.Button(head, text="Select highlighted →", style="Accent.TButton",
+                   command=self._targets_select).pack(side="right")
+        ttk.Button(head, text="↻ Refresh", command=self._targets_refresh).pack(side="right", padx=8)
+        self.tgt_kind = tk.StringVar(value="ap")
+        kind = ttk.Combobox(head, textvariable=self.tgt_kind, values=["ap", "sta"],
+                            state="readonly", width=6)
+        kind.pack(side="right", padx=8)
+        kind.bind("<<ComboboxSelected>>", lambda e: self._targets_populate())
+
+        tw = ttk.Frame(tg, style="Card.TFrame")
+        tw.pack(fill="both", expand=True, padx=10, pady=(0, 10))
+        cols = ("idx", "name", "bssid", "ch", "rssi")
+        self.tgt_tree = ttk.Treeview(tw, columns=cols, show="headings", selectmode="extended")
+        for c, txt, w, a in (("idx", "#", 44, "center"), ("name", "SSID / name", 220, "w"),
+                             ("bssid", "BSSID", 150, "w"), ("ch", "CH", 44, "center"),
+                             ("rssi", "RSSI", 54, "center")):
+            self.tgt_tree.heading(c, text=txt)
+            self.tgt_tree.column(c, width=w, anchor=a, stretch=(c == "name"))
+        sb = ttk.Scrollbar(tw, orient="vertical", command=self.tgt_tree.yview)
+        self.tgt_tree.configure(yscrollcommand=sb.set)
+        sb.pack(side="right", fill="y")
+        self.tgt_tree.pack(side="left", fill="both", expand=True)
+
+    def _targets_refresh(self):
+        if not self.dev:
+            messagebox.showinfo("Not connected", "Connect to the Marauder first.")
+            return
+        self._do_send("list -s" if self.tgt_kind.get() == "sta" else "list -a")
+
+    def _targets_populate(self):
+        if getattr(self, "tgt_tree", None) is None:
+            return
+        self.tgt_tree.delete(*self.tgt_tree.get_children())
+        data = self._lists.get(self.tgt_kind.get(), {})
+        for idx in sorted(data, key=lambda x: int(x) if str(x).isdigit() else 0):
+            r = data[idx]
+            self.tgt_tree.insert("", "end", iid=idx,
+                                 values=(idx, r.get("ssid", ""), r.get("bssid", ""),
+                                         r.get("channel", ""), r.get("rssi", "")))
+
+    def _targets_select(self):
+        sel = self.tgt_tree.selection()
+        if not sel:
+            messagebox.showinfo("No rows", "Highlight one or more rows first (Ctrl/Shift-click).")
+            return
+        flag = "-s" if self.tgt_kind.get() == "sta" else "-a"
+        idxs = ",".join(sorted(sel, key=lambda x: int(x) if str(x).isdigit() else 0))
+        self._do_send(f"select {flag} {idxs}")
 
     # ---- tree selection / builder --------------------------------------
     def _on_tree_select(self, _evt):
@@ -896,9 +967,11 @@ class MarauderGUI(tk.Tk):
                     picker_dirty = True
             except Exception:
                 pass
-        if picker_dirty and self._active_pickers:
+        if picker_dirty:
             try:
-                self._refresh_pickers()
+                if self._active_pickers:
+                    self._refresh_pickers()
+                self._targets_populate()
             except Exception:
                 pass
 

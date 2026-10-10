@@ -61,6 +61,9 @@ CATALOG = [
               "Live packets-per-second meter on the current channel.", []),
             C("MAC Track", "mactrack",
               "Tracks selected MAC(s) by presence and signal strength over time.", []),
+            C("Signal Monitor", "sigmon",
+              "Live signal monitor — graphs RSSI / packet activity on the current "
+              "channel. Runs until stopped.", []),
             C("Wardrive", "wardrive",
               "Logs APs with GPS coordinates to the SD card (Wigle-compatible). "
               "Requires a GPS fix.", []),
@@ -83,6 +86,8 @@ CATALOG = [
                P("Loop", "-l", "bool", help="Continuous / channel-looping capture.")]),
             C("SAE Sniff", "sniffsae",
               "Captures WPA3 SAE commit frames.", []),
+            C("ESP Sniff", "sniffesp",
+              "Detects other ESP-based devices broadcasting nearby.", []),
             C("Pwnagotchi Sniff", "sniffpwn",
               "Detects nearby Pwnagotchi devices by their beacon signature.", []),
             C("Pineapple Sniff", "sniffpinescan",
@@ -147,8 +152,9 @@ CATALOG = [
               "ARP-sweeps the local subnet for hosts (after Join).",
               [P("Full", "-f", "bool", help="Full/aggressive sweep.")]),
             C("Port Scan — host", "portscan -a -t",
-              "Scans common ports on a host from the ARP/host list.",
-              [P("Host index", None, "int", placeholder="e.g. 2")]),
+              "Scans common ports on a host from the ARP/host list. Run ARP Scan "
+              "first (or ↻ Refresh below), then double-click a host.",
+              [P("Host index", None, "int", placeholder="e.g. 2", source="host")]),
             C("Port Scan — service", "portscan -s",
               "Scans the subnet for a specific service.",
               [P("Service", None, "choice",
@@ -238,6 +244,9 @@ CATALOG = [
               "Scans specifically for Flipper Zero BLE advertisements.", []),
             C("Card Skimmer Detect", "sniffskim",
               "Scans for BLE signatures of known card-skimmer modules (defensive).", []),
+            C("Bluetooth Wardrive", "btwardrive",
+              "Logs nearby Bluetooth/BLE devices with GPS coordinates to the SD "
+              "card. Requires a GPS fix. Runs until stopped.", []),
         ]),
         ("Attacks", [
             C("Sour Apple", "blespam -t sourapple",
