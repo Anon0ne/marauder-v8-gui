@@ -45,8 +45,15 @@ class Marauder:
     # ---- low-level -------------------------------------------------------
 
     def send(self, command: str) -> None:
-        """Send a raw CLI command (newline is added for you)."""
-        self.ser.write((command.strip() + "\n").encode("utf-8", "replace"))
+        """Send a single CLI command (the trailing newline is added for you).
+
+        Embedded control characters (CR/LF/tab/etc.) are rejected so one call
+        can never smuggle multiple commands onto the wire.
+        """
+        cmd = command.strip()
+        if any(ord(ch) < 0x20 for ch in cmd):
+            raise ValueError("command contains control characters (possible injection)")
+        self.ser.write((cmd + "\n").encode("utf-8", "replace"))
         self.ser.flush()
 
     def read_available(self) -> str:

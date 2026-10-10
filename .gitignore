@@ -7,5 +7,6 @@ build/
 dist/
 *.spec
 logs/
+firmware/
 *.pcap
 *.pcapng

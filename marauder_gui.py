@@ -33,7 +33,7 @@ import datetime as _dt
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 
-__version__ = "0.2.0-dev"
+__version__ = "0.2.0"
 AUTHOR = "Justin Funderburk"
 CONTACT = "justin@bizhostnc.com"
 
@@ -49,6 +49,7 @@ except ImportError:
 from marauder import Marauder, BAUD
 from marauder_commands import CATALOG
 import marauder_pcap
+import marauder_flash
 
 
 # --------------------------------------------------------------------------
@@ -123,6 +124,13 @@ RUNNING_PREFIXES = ("sniff", "attack", "blespam", "scanall", "wardrive",
                     "mactrack", "packetcount", "nmea", "karma", "evilportal",
                     "arpscan", "pingscan", "portscan", "foxhunt",
                     "sigmon", "btwardrive")
+
+
+def redact(cmd: str) -> str:
+    """Mask secrets before anything is shown, logged, or exported — currently the
+    WiFi password after `-p` (e.g. `join -a 3 -p hunter2` -> `join -a 3 -p ***`).
+    The real command is still sent to the device; only display/log copies change."""
+    return re.sub(r"(?<!\S)(-p\s+)(\S+)", r"\1***", cmd)
 
 
 def command_runs(base: str) -> bool:
@@ -281,6 +289,8 @@ class MarauderGUI(tk.Tk):
 
         ttk.Button(bar, text="PCAP Inspector…",
                    command=self.open_pcap_dialog).pack(side="right")
+        ttk.Button(bar, text="Firmware…",
+                   command=self.open_firmware_dialog).pack(side="right", padx=(0, 8))
         ttk.Button(bar, text="About", command=self.show_about).pack(side="right", padx=(0, 8))
 
     # ---- body: nav tree + builder ---------------------------------------
@@ -886,18 +896,19 @@ class MarauderGUI(tk.Tk):
         if not self.dev:
             messagebox.showinfo("Not connected", "Connect to the Marauder first.")
             return
+        shown = redact(cmd)
         try:
             self.dev.send(cmd)
-            self._emit(f">> {cmd}\n", "tx")
+            self._emit(f">> {shown}\n", "tx")
         except Exception as e:
             self._emit(f"[send failed: {e}]\n", "sys")
-            self.log_event("ERROR", f"send failed: {cmd}")
+            self.log_event("ERROR", f"send failed: {shown}")
             return
         kind = event_kind or ("START" if command_runs(cmd) else "SEND")
         if kind == "START":
             self.running = True
             self._last_running_base = cmd
-        self.log_event(kind, cmd)
+        self.log_event(kind, shown)
 
     def stop_running(self):
         """Stop the running op and record it. Safe to press any time.
@@ -956,6 +967,9 @@ class MarauderGUI(tk.Tk):
         # Line-buffer for parsing. Each line is isolated so one bad line can
         # never interrupt console rendering or freeze the receive loop.
         self._line_buf += chunk
+        # Cap the partial-line buffer so a newline-less flood can't grow forever.
+        if len(self._line_buf) > 65536:
+            self._line_buf = self._line_buf[-8192:]
         picker_dirty = False
         while "\n" in self._line_buf:
             line, self._line_buf = self._line_buf.split("\n", 1)
@@ -1091,6 +1105,13 @@ class MarauderGUI(tk.Tk):
     def _emit(self, text, tag):
         self.console.configure(state="normal")
         self.console.insert("end", text, (tag,) if tag else ())
+        # Bound console growth so a high-volume sniff can't balloon memory.
+        try:
+            last = int(self.console.index("end-1c").split(".")[0])
+            if last > 6000:
+                self.console.delete("1.0", f"{last - 4000}.0")
+        except Exception:
+            pass
         if self.autoscroll.get():
             self.console.see("end")
         self.console.configure(state="disabled")
@@ -1194,6 +1215,164 @@ class MarauderGUI(tk.Tk):
             self.clipboard_clear()
             self.clipboard_append(CONTACT)
         ttk.Button(row, text="Copy email", command=copy_email).pack(side="right", padx=(0, 8))
+
+    # ---- firmware flasher (V8 / ESP32-C5) --------------------------------
+    def open_firmware_dialog(self):
+        win = tk.Toplevel(self)
+        win.title("Firmware updater — Marauder V8 (ESP32-C5)")
+        win.configure(bg=PALETTE["panel2"])
+        win.geometry("660x580")
+        win.transient(self)
+        self._fw_win = win
+        self._fw_q = queue.Queue()
+        self._fw_url = None
+        self._fw_busy = False
+        pad = dict(padx=16)
+
+        ttk.Label(win, text="Firmware updater", style="Title.TLabel").pack(anchor="w", pady=(16, 2), **pad)
+        ttk.Label(win, text="Flashes the official Marauder V8 build (the `_v8` asset, an ESP32-C5 image). "
+                  "The chip is auto-detected, so the architecture can't be set wrong. Keep the device "
+                  "plugged in and do not unplug it while flashing.",
+                  style="CardMuted.TLabel", wraplength=620, justify="left").pack(anchor="w", **pad)
+
+        portrow = ttk.Frame(win, style="Card.TFrame")
+        portrow.pack(fill="x", pady=(12, 4), **pad)
+        port = self._connected_port or self._port_map.get(self.port_cb.get(), self.port_cb.get())
+        self._fw_port = port
+        ttk.Label(portrow, text=f"Port:  {port or '(none — connect or pick a port first)'}",
+                  style="Card.TLabel", font=MONO).pack(side="left")
+        ttk.Button(portrow, text="Read chip info", command=self._fw_chipinfo).pack(side="right")
+
+        srcrow = ttk.Frame(win, style="Card.TFrame")
+        srcrow.pack(fill="x", pady=(10, 4), **pad)
+        ttk.Button(srcrow, text="Fetch + download latest V8 firmware",
+                   style="Accent.TButton", command=self._fw_fetch).pack(side="left")
+        ttk.Button(srcrow, text="Browse .bin…", command=self._fw_browse).pack(side="left", padx=8)
+
+        self._fw_file = tk.StringVar(value="")
+        ttk.Label(win, text="Firmware file to flash:", style="CardMuted.TLabel").pack(anchor="w", pady=(8, 2), **pad)
+        ttk.Entry(win, textvariable=self._fw_file, font=MONO).pack(fill="x", ipady=3, **pad)
+
+        actrow = ttk.Frame(win, style="Card.TFrame")
+        actrow.pack(fill="x", pady=(10, 4), **pad)
+        ttk.Label(actrow, text="Baud", style="CardMuted.TLabel").pack(side="left")
+        self._fw_baud = ttk.Combobox(actrow, values=["115200", "460800", "921600"],
+                                     state="readonly", width=8)
+        self._fw_baud.set("921600")
+        self._fw_baud.pack(side="left", padx=8)
+        self._fw_flash_btn = ttk.Button(actrow, text="⚡ Flash firmware",
+                                        style="Stop.TButton", command=self._fw_flash)
+        self._fw_flash_btn.pack(side="right")
+
+        ttk.Label(win, text="esptool output", style="CardMuted.TLabel").pack(anchor="w", pady=(10, 2), **pad)
+        lw = ttk.Frame(win, style="Card.TFrame")
+        lw.pack(fill="both", expand=True, padx=16, pady=(0, 16))
+        self._fw_log = tk.Text(lw, height=12, wrap="word", relief="flat", bg="#070b0f",
+                               fg=PALETTE["fg"], font=MONO, padx=10, pady=8)
+        sb = ttk.Scrollbar(lw, orient="vertical", command=self._fw_log.yview)
+        self._fw_log.configure(yscrollcommand=sb.set)
+        sb.pack(side="right", fill="y")
+        self._fw_log.pack(side="left", fill="both", expand=True)
+
+        self._fw_drain()
+
+    def _fw_out(self, s):
+        self._fw_q.put(s)
+
+    def _fw_drain(self):
+        win = getattr(self, "_fw_win", None)
+        if win is None or not win.winfo_exists():
+            return
+        try:
+            while True:
+                s = self._fw_q.get_nowait()
+                self._fw_log.insert("end", s)
+                self._fw_log.see("end")
+        except queue.Empty:
+            pass
+        win.after(80, self._fw_drain)
+
+    def _fw_free_port(self):
+        """Release the serial port (and reader) so esptool can own it."""
+        if self.dev:
+            self._fw_out("Disconnecting GUI to free the port for esptool…\n")
+            self._disconnect()
+
+    def _fw_browse(self):
+        p = filedialog.askopenfilename(title="Select firmware .bin",
+                                       filetypes=[("Firmware", "*.bin"), ("All files", "*.*")])
+        if p:
+            self._fw_file.set(p)
+
+    def _fw_fetch(self):
+        if self._fw_busy:
+            return
+        fwdir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "firmware")
+
+        def work():
+            try:
+                self._fw_out("Fetching latest release from GitHub…\n")
+                rel = marauder_flash.fetch_latest_release()
+                asset = marauder_flash.pick_asset(rel["assets"], "v8")
+                if not asset:
+                    self._fw_out("No `_v8` asset found in the latest release.\n")
+                    return
+                self._fw_out(f"Latest: {rel['tag']}  ->  {asset['name']} "
+                             f"({asset['size'] // 1024} KB)\nDownloading…\n")
+                os.makedirs(fwdir, exist_ok=True)
+                dest = os.path.join(fwdir, asset["name"])
+                marauder_flash.download_asset(asset["url"], dest)
+                self._fw_out(f"Saved: {dest}\n")
+                win = getattr(self, "_fw_win", None)
+                if win and win.winfo_exists():
+                    win.after(0, lambda: self._fw_file.set(dest))
+            except Exception as e:  # noqa: BLE001
+                self._fw_out(f"[fetch error] {e}\n")
+        threading.Thread(target=work, daemon=True).start()
+
+    def _fw_chipinfo(self):
+        if self._fw_busy or not self._fw_port:
+            if not self._fw_port:
+                self._fw_out("No port available — connect or select a port first.\n")
+            return
+        self._fw_free_port()
+        port = self._fw_port
+
+        def work():
+            marauder_flash.run_esptool(marauder_flash.chipinfo_args(port), self._fw_out)
+        threading.Thread(target=work, daemon=True).start()
+
+    def _fw_flash(self):
+        if self._fw_busy:
+            return
+        port = self._fw_port
+        path = self._fw_file.get().strip()
+        if not port:
+            messagebox.showwarning("No port", "Connect or select a port first.")
+            return
+        if not path or not os.path.isfile(path):
+            messagebox.showwarning("No firmware", "Fetch the latest firmware or Browse to a .bin first.")
+            return
+        if not messagebox.askyesno(
+                "Flash firmware",
+                f"Write this firmware to the Marauder on {port}?\n\n{os.path.basename(path)}\n\n"
+                "The chip is auto-detected. Do NOT unplug the device while flashing. Continue?"):
+            return
+        self._fw_free_port()
+        self._fw_busy = True
+        self._fw_flash_btn.configure(state="disabled")
+        baud = int(self._fw_baud.get())
+
+        def work():
+            ok = marauder_flash.run_esptool(
+                marauder_flash.flash_args(port, path, baud=baud), self._fw_out)
+            self._fw_out("\n✓ Flash complete. The device should reboot into the new firmware.\n"
+                         if ok else "\n✗ Flash failed — see the output above.\n")
+            self._fw_busy = False
+            win = getattr(self, "_fw_win", None)
+            if win and win.winfo_exists():
+                win.after(0, lambda: self._fw_flash_btn.configure(state="normal"))
+        threading.Thread(target=work, daemon=True).start()
 
     # ---- PCAP ------------------------------------------------------------
     def open_pcap_dialog(self):

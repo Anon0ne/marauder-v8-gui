@@ -80,11 +80,34 @@ the firmware's Evil Portal feature. It's an **awareness page, not a credential
 trap** — it collects nothing, and instead shows anyone who connects why trusting
 an unknown open network is risky. See [`portals/README.md`](portals/README.md).
 
+## Firmware updater
+
+Toolbar **Firmware…** opens the updater for the **Marauder V8 (ESP32‑C5)**. It can
+fetch and download the latest official `_v8` build from GitHub (or take a local
+`.bin`), read chip info, and flash over serial via esptool. The chip is
+**auto-detected**, so the architecture can't be set wrong. Keep the device plugged
+in while flashing. This release targets the V8 only; other board builds come later.
+
+## Security / hardening
+
+- WiFi passwords (`-p …`) are **redacted** in the console, event log, and exports.
+- `send()` rejects embedded control characters (no multi-command injection).
+- Console and serial buffers are **bounded** against high-volume floods.
+- The PCAP reader validates record lengths before trusting them.
+
 ## Firmware note
 
 The catalog was built from *this* device's live `help` output. If you flash a
 different build and syntax changes, run **Device → Firmware Help** and edit
 `marauder_commands.py` to match.
+
+## Roadmap (v0.3)
+
+- Live RF dashboard — discovered APs, channels, signal strength, security modes, BLE
+- Automated passive wireless survey — dedup, GPS correlation, JSON/CSV/KML export
+- Optional local AI (Ollama) analysis of sanitized findings
+
+These will open as their own pages from a menu, to keep the main window uncluttered.
 
 ## Authorized use only
 

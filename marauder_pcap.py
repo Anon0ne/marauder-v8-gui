@@ -77,22 +77,34 @@ def summarize(path: str, max_packets: int | None = None) -> dict:
         first_ts = last_ts = None
         total_orig = 0
         truncated = False
+        corrupt = False
+        sane_max = max(snaplen, 262144)   # never trust a record bigger than this
         rec_hdr = struct.Struct(endian + "IIII")
         while True:
             if max_packets is not None and count >= max_packets:
                 truncated = True
                 break
             rh = f.read(16)
+            if not rh:
+                break
             if len(rh) < 16:
+                truncated = True       # dangling partial record header
                 break
             ts_sec, ts_frac, incl_len, orig_len = rec_hdr.unpack(rh)
+            # Validate the capture length against sanity and the file size before
+            # trusting it to advance the cursor.
+            if incl_len > sane_max:
+                corrupt = True
+                break
+            if incl_len > (size - f.tell()):
+                truncated = True       # record claims more bytes than remain
+                break
             ts = ts_sec + ts_frac / ts_div
             if first_ts is None:
                 first_ts = ts
             last_ts = ts
             total_orig += orig_len
             count += 1
-            # Skip the packet body.
             if incl_len:
                 f.seek(incl_len, os.SEEK_CUR)
 
@@ -106,6 +118,7 @@ def summarize(path: str, max_packets: int | None = None) -> dict:
         "snaplen": snaplen,
         "packets": count,
         "truncated": truncated,
+        "corrupt": corrupt,
         "first_ts": first_ts,
         "last_ts": last_ts,
         "duration_s": round(duration, 3),
@@ -126,7 +139,9 @@ def format_summary(info: dict) -> str:
     lines += [
         f"Link type : {info['linktype']} ({info['linktype_num']})",
         f"Snap len  : {info['snaplen']}",
-        f"Packets   : {info['packets']:,}" + (" (truncated scan)" if info["truncated"] else ""),
+        f"Packets   : {info['packets']:,}"
+        + (" (stopped early — corrupt record length)" if info.get("corrupt")
+           else " (file truncated / incomplete)" if info["truncated"] else ""),
         f"Duration  : {info['duration_s']} s",
         f"Avg packet: {info['avg_pkt_bytes']} bytes",
         f"Start time: {when}",
