@@ -1,0 +1,27 @@
+# Windows x64 / Python 3.12.10 tested dependency versions.
+altgraph==0.17.5
+bitarray==3.12.0
+bitstring==4.4.0
+cffi==2.1.1
+click==8.5.0
+colorama==0.4.6
+cryptography==50.0.2
+esp-pylib==1.2.0
+esptool==5.5.0
+intelhex==2.3.0
+markdown-it-py==4.2.0
+mdurl==0.1.2
+packaging==26.3
+pefile==2024.8.26
+pycparser==3.11
+pygments==2.21.0
+pyinstaller==6.22.3
+pyinstaller-hooks-contrib==2026.8
+pyserial==3.5
+pywin32-ctypes==0.2.3
+pyyaml==6.0.3
+reedsolo==1.7.0
+rich==15.0.0
+rich-click==1.9.9
+setuptools==84.0.0
+tibs==0.5.7

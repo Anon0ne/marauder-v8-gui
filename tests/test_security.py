@@ -12,14 +12,14 @@ from marauder_gui import MarauderGUI, redact
 
 class SecurityTests(unittest.TestCase):
     def test_unknown_and_active_commands_fail_closed(self):
-        for command in ['reboot', 'join -a 0', 'select -a 1', 'attack -t deauth',
+        for command in ['recon ble', 'reboot', 'join -a 0', 'select -a 1', 'attack -t deauth',
                         'listwhatever', 'recon wifi\nattack -t deauth',
                         'recon wifi -d', 'channel -s 6', 'list -a\x7f']:
             with self.subTest(command=command):
                 self.assertFalse(marauder_ai.is_passive(command))
 
     def test_expected_passive_commands_remain_allowed(self):
-        for command in ['recon wifi', 'recon ble', 'recon stop', 'stopscan', 'list -a']:
+        for command in ['recon wifi', 'recon stop', 'stopscan', 'list -a']:
             self.assertTrue(marauder_ai.is_passive(command))
 
     def test_dispatch_does_not_autorun_unknown_commands(self):
@@ -45,11 +45,12 @@ class SecurityTests(unittest.TestCase):
 
     def test_survey_starts_once_and_stop_cancels_timer(self):
         sent, timers = [], {}
-        fake = SimpleNamespace(_survey_on=False, _ai_survey_on=False, dev=object(),
+        fake = SimpleNamespace(_survey_on=False, _ai_survey_on=False, dev=object(), running=False,
                                _survey_btn=Mock(), _survey_merge=Mock(),
                                _do_send=lambda command, **kw: sent.append(command),
                                after=lambda delay, cb: timers.setdefault('job', cb) and 'job',
                                after_cancel=lambda job: timers.pop(job, None))
+        fake._finish_survey_recording = lambda: None
         fake._survey_step = lambda: MarauderGUI._survey_step(fake)
         MarauderGUI._survey_toggle(fake)
         for _ in range(4):

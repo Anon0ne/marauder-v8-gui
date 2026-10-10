@@ -1,4 +1,4 @@
-Marauder V8 Control GUI v0.4.0b Beta - Linux (Python source distribution)
+Marauder V8 Control GUI v0.4.2b - Linux (Python source distribution)
 
 AUTOMATED SETUP AND LAUNCH
 Extract the Linux ZIP, open a terminal in that folder, and run:

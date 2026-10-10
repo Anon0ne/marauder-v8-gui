@@ -14,3 +14,7 @@ firmware/*.bin
 *.jsonl
 
 *.zip
+
+.build-venv-*/
+
+.cloud-keys/

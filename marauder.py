@@ -19,6 +19,7 @@ import argparse
 import sys
 import time
 import threading
+import codecs
 
 try:
     import serial
@@ -37,7 +38,9 @@ class Marauder:
     def __init__(self, port: str, baud: int = BAUD, timeout: float = DEFAULT_READ_TIMEOUT):
         self.port = port
         self.baud = baud
-        self.ser = serial.Serial(port, baud, timeout=timeout)
+        self._write_lock = threading.Lock()
+        self._decoder = codecs.getincrementaldecoder("utf-8")("replace")
+        self.ser = serial.Serial(port, baud, timeout=timeout, write_timeout=1.0)
         # Give the ESP32 a moment after the port opens (it may reset).
         time.sleep(1.5)
         self.ser.reset_input_buffer()
@@ -50,13 +53,18 @@ class Marauder:
         Embedded control characters (CR/LF/tab/etc.) are rejected so one call
         can never smuggle multiple commands onto the wire.
         """
+        if any(ord(ch) < 0x20 or ord(ch) == 0x7f for ch in command):
+            raise ValueError("command contains control characters")
         cmd = command.strip()
         if len(cmd) > 4096:
             raise ValueError('command exceeds 4096 characters')
         if any(ord(ch) < 0x20 or ord(ch) == 0x7f for ch in cmd):
             raise ValueError("command contains control characters (possible injection)")
-        self.ser.write((cmd + "\n").encode("utf-8", "replace"))
-        self.ser.flush()
+        payload = (cmd + "\n").encode("utf-8", "strict")
+        with getattr(self, "_write_lock", threading.Lock()):
+            written = self.ser.write(payload)
+            if written != len(payload):
+                raise serial.SerialTimeoutException("Incomplete command write; reconnect before retrying")
 
     def read_available(self) -> str:
         """Drain whatever is currently in the input buffer."""
@@ -70,7 +78,9 @@ class Marauder:
             chunks.append(chunk)
             remaining -= len(chunk)
             time.sleep(0.02)
-        return b"".join(chunks).decode("utf-8", "replace")
+        data = b"".join(chunks)
+        decoder = getattr(self, "_decoder", None)
+        return decoder.decode(data) if decoder else data.decode("utf-8", "replace")
 
     def command(self, command: str, settle: float = 0.6) -> str:
         """Send a command and collect the reply for `settle` seconds."""
@@ -224,7 +234,8 @@ def cmd_scan(args) -> int:
         m.stop()
         time.sleep(0.3)
         print("\n--- Captured list ---")
-        print(m.list_stations() if args.stations else m.list_aps())
+        print(m.command("list -b", settle=1.0) if args.ble else
+              m.list_stations() if args.stations else m.list_aps())
     finally:
         m.close()
     return 0

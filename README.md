@@ -1,62 +1,41 @@
-# Marauder V8 Control — 0.4.0b Beta
+# Marauder V8 Control — 0.4.2b Beta
 
-## Major GUI change — community beta testing
+0.4.2b Beta improves reliability and GPS/wardrive controls. The major Workspace GUI remains experimental; community feedback will determine whether we retain it. Read [development changes](CHANGELOG-development.md), [audit and plan](docs/AUDIT_AND_PLAN.md), [firmware comparison](docs/COMMAND_COMPARISON.md), and [validation](docs/VALIDATION.md).
 
-The GUI has changed substantially for 0.4.0 Beta. Please test navigation, serial connection, continuous surveys, capture/export tools and AI controls, and report usability feedback or regressions through GitHub issues. We are not yet sure whether we will keep this interface; community feedback will help decide its future.
+## Run and build
 
-![Newest Workspace GUI](docs/screenshots/workspace-beta.png)
+Windows portable package: extract and run MarauderV8-Control.exe. Source: install requirements.txt and launch marauder_workspace.py. BUILD_AND_INSTALL.cmd builds and installs the Marauder V8 Control shortcut. For the repeatable tested build, use Python 3.12.10 x64:
 
-The screenshot uses illustrative data with the device disconnected.
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\BUILD_REPRODUCIBLE.ps1
+```
 
+Add `-EnableNPU` to include the optional runtime, or `-PythonExe "C:\path\to\python.exe"` if the Python launcher is unavailable. Models remain separate downloads. The script creates a fresh virtual environment, installs pinned packages, checks dependencies, runs tests and builds the standalone executable. Repeatable inputs do not imply a byte-for-byte identical EXE; packaging metadata and the Windows build host can affect hashes.
 
-A desktop workspace for operating ESP32 Marauder V8 over USB serial, reviewing wireless observations, recording sessions, and using optional local AI analysis.
+Linux source: `bash INSTALL_AND_RUN.sh`, or install requirements.txt in a virtual environment and run marauder_workspace.py. Linux execution has not been tested here.
+
+## Passive analysis boundary
+
+Automated Survey starts Wi-Fi reconnaissance once, records sessions by default, and collects observations until Stop. It does not rotate/restart RF operations. Existing manual recording and all command pages remain available.
+
+Official BLE recon uses active scanning. BLE acquisition remains a manual operator action; received BLE observations can be logged and analyzed. It is not an autonomous receive-only scanner. Eight legacy catalog commands are flagged as unverified in current official firmware; consult the installed device's help.
+
+Local AI uses Ollama on loopback. Verify an installed model, analyze observations or save a diagnostic report. Exact passive-command automation is optional; unknown/transmitting commands are never loaded or sent by AI. Report generation never executes commands. NPU/Hybrid remains experimental after the prior device-lost error.
+
+Live inventories are capped at 4096 rows, console/chat displays are bounded, and replay accepts sessions up to 128 MiB. Save session recordings for complete long-running observation history. Received data and reports may contain private network information.
 
 Project: https://github.com/Anon0ne/marauder-v8-gui
 
-## Features
+## Existing tools retained
 
-- Dark Workspace interface with persistent navigation, embedded tools, stable target selection and a side console.
-- Live Wi-Fi and BLE inventories, RF dashboard, and continuous passive Wi-Fi survey. Start sends reconnaissance once; Stop ends it once. Inventory refresh does not restart capture.
-- Read-only SD browsing, PCAP inspection, JSON/CSV inventory exports and GPS-based KML placemarks when a valid GPS fix exists.
-- JSONL RX/TX session recording and receive-only offline replay.
-- Firmware flashing with esptool and USB serial connection in a background worker.
-- Local Ollama conversation, explicit Intel NPU inference, and optional Hybrid mode: NPU observation summaries run separately from Ollama GPU conversation.
-- Bounded serial input, password redaction and a strict AI command allowlist. Unverified AI suggestions are never copied into Raw or executed.
+Dark Workspace navigation, manual command catalog, Wi-Fi/BLE inventories, RF dashboard, SD browser, PCAP inspector, JSON/CSV exports, GPS-based KML, session recording/replay and firmware flashing remain available. Firmware flashing is an app-only update and requires an existing compatible V8 bootloader/partition layout; use the official installer for full installation or partition migration.
 
-## Windows
+Community resources: [Contributing](CONTRIBUTING.md), [Code of conduct](CODE_OF_CONDUCT.md), [Security](SECURITY.md), [Support](SUPPORT.md).
 
-For the Windows portable ZIP, extract everything and launch MarauderV8-Control.exe. Python is not required for the executable. Optional AI models are separate downloads.
+## Online AI without a GPU
 
-From source, automated setup/build: double-click BUILD_AND_INSTALL.cmd. Manual setup: install Python 3.10–3.13 with Tkinter, create a virtual environment, install requirements.txt, then run marauder_workspace.py.
+Choose Cloud: OpenRouter Free or Cloud: Gemini and open Cloud settings. Bring your own API key and explicitly consent to sending prompts. Aggregate sharing is off by default; when enabled it sends counts, channels and RSSI ranges, excluding names, addresses, GPS and serial logs. Anything typed in prompts is sent to the provider. Keys are session-only unless Windows DPAPI storage is selected; Linux persistence is unsupported.
 
-```powershell
-py -3.12 -m venv .venv
-.\.venv\Scripts\python.exe -m pip install -r requirements.txt
-.\.venv\Scripts\python.exe marauder_workspace.py
-```
+OpenRouter accepts openrouter/free or :free models, without paid fallback. Quotas and availability vary. Gemini offers eligible free tiers; billed accounts can incur charges and free-tier data can be used to improve provider products. Check [OpenRouter free router](https://openrouter.ai/docs/guides/routing/routers/free-router) and [Gemini pricing](https://ai.google.dev/gemini-api/docs/pricing). Real authenticated cloud requests remain untested; automated tests use mocked responses.
 
-Optional NPU: double-click SETUP_NPU.cmd, then RUN_NPU.cmd. The wrapper permits its setup script for that process without changing system execution policy. See NPU_SETUP.md.
-
-## Linux
-
-The Linux ZIP contains source, not a Windows executable. Install Python, Tkinter and venv support through your distribution, then use `bash INSTALL_AND_RUN.sh`. For manual installation:
-
-```sh
-python3 -m venv .venv
-.venv/bin/python -m pip install -r requirements.txt
-.venv/bin/python marauder_workspace.py
-```
-
-Serial permissions may require membership in your distribution's serial-access group. Linux GUI and NPU hardware execution have not been validated on this Windows machine.
-
-## AI and accelerator behavior
-
-Intel NPU requires a supported Intel driver, OpenVINO dependencies, and the separate pinned Phi-3.5 Mini model download. There is no silent CPU fallback. Phi-3.5 is a small model: treat its conclusions as suggestions, verify against firmware help, and use Ollama for more demanding conversation.
-
-Hybrid selects an Ollama model (default llama3.1:8b) and an NPU folder. Verify checks NPU loading and reported Ollama GPU memory use. NPU summaries refresh on questions, at most once per 30 seconds. An exact matching cached summary can reduce the observation context sent to the GPU; otherwise the original observations are used. Jobs can overlap; this does not split one model across both devices. Speed or power savings depend on workload.
-
-AI output is untrusted. Only exact documented observation commands qualify for optional automatic execution. Unknown commands, transmitting commands and host utilities are shown as unverified text. Handshake capture alone does not prove network security.
-
-Recordings and exports can contain private network observations. Review them before sharing. See SECURITY.md, CONTRIBUTING.md, CODE_OF_CONDUCT.md and SUPPORT.md.
-
-Experimental NPU/Hybrid limitation: the latest NPU conversational retest returned a device-lost driver error. NPU answer quality and concurrent execution remain unverified for this beta; Ollama can be used independently.
+See [GPS and wardrive troubleshooting](docs/GPS_AND_WARDRIVE.md). GPS works on the user's device after a hardware correction; POI persistence requires an SD-card check.

@@ -1,4 +1,4 @@
-"""Marauder V8 0.4.0b Beta: persistent navigation and embedded tool pages."""
+"""Marauder V8 Beta: persistent navigation and embedded tool pages."""
 import queue
 import threading
 import tkinter as tk
@@ -121,7 +121,7 @@ class WorkspaceGUI(MarauderGUI):
                  font=('Segoe UI',24)).pack(side='left', padx=(0,12))
         brand = ttk.Frame(header)
         brand.pack(side='left')
-        ttk.Label(brand, text='MARAUDER    V8 / 0.4.0b Beta', font=('Segoe UI',15,'bold')).pack(anchor='w')
+        ttk.Label(brand, text='MARAUDER    V8 / 0.4.2b Beta', font=('Segoe UI',15,'bold')).pack(anchor='w')
         ttk.Label(brand, text='Radio reconnaissance workspace', style='Muted.TLabel').pack(anchor='w')
         self.connect_btn = ttk.Button(header, text='Connect', style='Accent.TButton',
                                        command=self.toggle_connection)
@@ -248,7 +248,7 @@ class WorkspaceGUI(MarauderGUI):
         self.after(1000,self._workspace_refresh)
         footer = tk.Frame(self,bg=PALETTE['panel'],padx=24,pady=8)
         footer.pack(side='bottom',fill='x',before=outer)
-        ttk.Label(footer,text='Marauder V8 0.4.0b Beta',style='Muted.TLabel').pack(side='left')
+        ttk.Label(footer,text='Marauder V8 Beta',style='Muted.TLabel').pack(side='left')
         ttk.Label(footer,text='Anon0ne',style='Muted.TLabel').pack(side='right')
 
     def _build_catalog_page(self):
@@ -448,7 +448,11 @@ class WorkspaceGUI(MarauderGUI):
         self.after(1500,self._workspace_refresh)
 
     def _connect(self,silent_fail=False):
-        if self._connecting:
+        if self._connecting or self.dev:
+            return
+        if self._replay_iter is not None:
+            if not silent_fail:
+                messagebox.showinfo("Replay running", "Wait for session replay to finish before connecting.")
             return
         label = self.port_cb.get()
         if not label:
@@ -468,10 +472,18 @@ class WorkspaceGUI(MarauderGUI):
                     device.close()
                     return
                 results.put((device,None))
+                if self._workspace_shutdown:
+                    device.close()
             except Exception as error:
                 results.put((None,str(error)))
         def finish():
             if self._workspace_shutdown:
+                try:
+                    abandoned, _ = results.get_nowait()
+                    if abandoned:
+                        abandoned.close()
+                except queue.Empty:
+                    pass
                 return
             try:
                 device,error = results.get_nowait()

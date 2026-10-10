@@ -27,14 +27,16 @@ import re
 import csv
 import sys
 import queue
+import serial
 import threading
+import time
 import webbrowser
 import datetime as _dt
 
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 
-__version__ = "0.4.0b"
+__version__ = "0.4.2b"
 AUTHOR = "Justin Funderburk"
 CONTACT = "justin@bizhostnc.com"
 
@@ -140,8 +142,15 @@ def command_runs(base: str) -> bool:
     toks = base.strip().split()
     if toks[:1] == ["recon"] and toks[1:2] in (["wifi"], ["ble"]):
         return True
-    return base.strip().startswith(RUNNING_PREFIXES)
+    return base.strip() in {"gpsdata", "gps -t"} or base.strip().startswith(RUNNING_PREFIXES)
 
+
+
+def spreadsheet_cell(value):
+    """Keep untrusted network names from becoming spreadsheet formulas."""
+    if isinstance(value, str) and value.lstrip().startswith(('=', '+', '-', '@')):
+        return "'" + value
+    return value
 
 class MarauderGUI(tk.Tk):
     def __init__(self):
@@ -156,6 +165,8 @@ class MarauderGUI(tk.Tk):
         self.reader_stop = threading.Event()
         self.rx_queue: queue.Queue[str] = queue.Queue(maxsize=256)
         self._rx_dropped = 0
+        self._ui_queue = queue.Queue()
+        self._replay_iter = None
         self._line_buf = ""
 
         self.csv_logging = tk.BooleanVar(value=False)
@@ -183,6 +194,7 @@ class MarauderGUI(tk.Tk):
         self._ble_history = {}
         self._sd_rows = []
         self._record_fp = None
+        self._survey_record_owned = False
         self._gps_fix = None
         self._host_n = 0
         self._parse_mode = None
@@ -906,6 +918,9 @@ class MarauderGUI(tk.Tk):
 
     def _disconnect(self):
         port = self._connected_port
+        self._cancel_surveys()
+        self._line_buf = ""
+        self._parse_mode = None
         self.reader_stop.set()
         if self.reader_thread:
             self.reader_thread.join(timeout=1.0)
@@ -914,20 +929,49 @@ class MarauderGUI(tk.Tk):
         self.dev = None
         self._connected_port = None
         self.running = False
+        self._gps_fix = None
+        self._gps_parts = {}
+        self._gps_valid = None
+        while True:
+            try:
+                self.rx_queue.get_nowait()
+            except queue.Empty:
+                break
         self.connect_btn.configure(text="Connect")
         self.status.configure(text="● Disconnected", foreground=PALETTE["muted"])
         self._emit("[disconnected]\n", "sys")
         self.log_event("DISCONNECT", port or "")
 
-    def _reader_loop(self):
-        while not self.reader_stop.is_set() and self.dev:
-            try:
-                data = self.dev.read_available()
-            except Exception as e:
+    def _finish_survey_recording(self):
+        if getattr(self, '_survey_record_owned', False):
+            if self._record_fp:
                 try:
-                    self.rx_queue.put_nowait(f"[serial error: {e}]\n")
-                except queue.Full:
-                    pass
+                    self._record_fp.close()
+                except OSError as error:
+                    self._emit(f"[recording close failed: {error}]\n", 'sys')
+                self._record_fp = None
+            self._survey_record_owned = False
+
+    def _cancel_surveys(self):
+        self._finish_survey_recording()
+        self._survey_on = False
+        self._ai_survey_on = False
+        job = getattr(self, '_survey_job', None)
+        if job is not None:
+            self.after_cancel(job)
+            self._survey_job = None
+        for name, text in [('_survey_btn', '▶ Start survey'), ('_ai_survey_btn', '▶ Passive survey')]:
+            widget = getattr(self, name, None)
+            if widget and widget.winfo_exists():
+                widget.configure(text=text)
+
+    def _reader_loop(self):
+        device = self.dev
+        while not self.reader_stop.is_set() and device:
+            try:
+                data = device.read_available()
+            except Exception as error:
+                self._ui_queue.put(lambda d=device, e=str(error): self._serial_failed(d, e))
                 break
             if data:
                 try:
@@ -936,6 +980,11 @@ class MarauderGUI(tk.Tk):
                     self._rx_dropped += 1
             else:
                 self.reader_stop.wait(0.05)
+
+    def _serial_failed(self, device, error):
+        if self.dev is device:
+            self._disconnect()
+            self._emit(f"[serial disconnected: {error}]\n", 'sys')
 
     # ---- send ------------------------------------------------------------
     def send_current(self):
@@ -961,12 +1010,17 @@ class MarauderGUI(tk.Tk):
         except Exception as e:
             self._emit(f"[send failed: {e}]\n", "sys")
             self.log_event("ERROR", f"send failed: {shown}")
+            if isinstance(e, (serial.SerialException, OSError)):
+                self._disconnect()
             return
         kind = event_kind or ("START" if command_runs(cmd) else "SEND")
         if kind == "START":
             self.running = True
             self._last_running_base = cmd
         self.log_event(kind, shown)
+        if kind == "STOP":
+            self.running = False
+            self._last_running_base = ""
 
     def stop_running(self):
         """Stop the running op and record it. Safe to press any time.
@@ -1019,6 +1073,13 @@ class MarauderGUI(tk.Tk):
     # ---- RX pump + CSV ---------------------------------------------------
     def _pump_rx(self):
         try:
+            for _ in range(32):
+                try:
+                    callback = self._ui_queue.get_nowait()
+                except queue.Empty:
+                    break
+                callback()
+
             if self._rx_dropped:
                 dropped, self._rx_dropped = self._rx_dropped, 0
                 self._emit(f'[receive buffer full: dropped {dropped} chunks]\n', 'sys')
@@ -1054,6 +1115,9 @@ class MarauderGUI(tk.Tk):
                     picker_dirty = True
             except Exception:
                 pass
+        for inventory in [*self._lists.values(), self._ble_history]:
+            while len(inventory) > 4096:
+                inventory.pop(next(iter(inventory)))
         if picker_dirty:
             try:
                 if self._active_pickers:
@@ -1075,6 +1139,17 @@ class MarauderGUI(tk.Tk):
         while raw[:1] == ">":
             raw = raw[1:].lstrip()
         low = raw.lower()
+        relation = re.match(r'^\d+:\s*(ap|sta):\s*([0-9a-f:]{17})\s*->\s*(ap|sta):\s*([0-9a-f:]{17})', low)
+        if relation and relation.group(1) != relation.group(3):
+            station = relation.group(2) if relation.group(1) == 'sta' else relation.group(4)
+            ap_mac = relation.group(4) if relation.group(1) == 'sta' else relation.group(2)
+            if int(station[:2], 16) & 1:
+                return False
+            data = self._lists['sta']
+            index = next((i for i, row in data.items() if row.get('bssid') == station), str(len(data)))
+            data[index] = {'index': index, 'ssid': station, 'bssid': station,
+                           'ap_bssid': ap_mac, 'channel': '', 'rssi': '', '_observed_at': time.monotonic()}
+            return True
         if low.startswith("#"):
             cmd = low[1:].strip()
             if cmd.startswith("list -a"):
@@ -1126,7 +1201,7 @@ class MarauderGUI(tk.Tk):
                     idx = str(len(ap))
                 ap[idx] = {"index": idx, "ssid": parsed.get("ssid", ""),
                            "bssid": parsed["bssid"], "channel": parsed.get("channel", ""),
-                           "rssi": parsed.get("rssi", "")}
+                           "rssi": parsed.get("rssi", ""), "_observed_at": time.monotonic()}
                 return True
             return False
         if any(k in low for k in ("selected", "available", "no ap", "no sta", "====")):
@@ -1184,7 +1259,7 @@ class MarauderGUI(tk.Tk):
         if self.csv_writer:
             self.csv_writer.writerow([
                 _dt.datetime.now().isoformat(timespec="seconds"),
-                row["index"], row["ssid"], row["bssid"],
+                row["index"], spreadsheet_cell(row["ssid"]), row["bssid"],
                 row["channel"], row["rssi"],
             ])
             self.csv_file.flush()
@@ -1219,6 +1294,8 @@ class MarauderGUI(tk.Tk):
                 self.console.delete("1.0", f"{last - 4000}.0")
         except Exception:
             pass
+        if int(self.console.count("1.0", "end", "chars")[0]) > 250000:
+            self.console.delete("1.0", "end-200000c")
         if self.autoscroll.get():
             self.console.see("end")
         self.console.configure(state="disabled")
@@ -1331,10 +1408,10 @@ class MarauderGUI(tk.Tk):
                   "and optional local AI analysis together in one interface.",
                   style="CardMuted.TLabel", wraplength=550, justify="left").pack(
                       anchor="w", padx=22, pady=(14, 8))
-        ttk.Label(win, text="• Live Wi-Fi and BLE inventories, RF dashboard and continuous surveys\n"
+        ttk.Label(win, text="• Wi-Fi surveys, manual BLE inventory and RF dashboard\n"
                   "• SD browser, PCAP tools, JSON/CSV exports and GPS-based KML\n"
                   "• Session recording and receive-only offline replay\n"
-                  "• Local AI through Ollama, Intel NPU or concurrent NPU/GPU jobs\n"
+                  "• Local Ollama/NPU AI and optional hosted AI without a GPU\n"
                   "• Firmware flashing and manual or automated setup",
                   style="Card.TLabel", wraplength=550, justify="left").pack(anchor="w", padx=22)
         github = "https://github.com/Anon0ne/marauder-v8-gui"
@@ -1398,6 +1475,16 @@ class MarauderGUI(tk.Tk):
         ttk.Button(gps, text="Read GPS", command=self._dash_read_gps).pack(side="left")
         self._dash_gps = ttk.Label(gps, text="GPS: press Read GPS", style="CardMuted.TLabel", font=MONO)
         self._dash_gps.pack(side="left", padx=10)
+        drive = ttk.Frame(win, style="Card.TFrame")
+        drive.pack(fill="x", pady=6, **pad)
+        ttk.Button(drive, text="Start Wardrive", command=self._dash_start_wardrive).pack(side="left")
+        ttk.Button(drive, text="Stop", command=self.stop_running).pack(side="left", padx=4)
+        self._poi_label = tk.StringVar()
+        ttk.Entry(drive, textvariable=self._poi_label, width=22).pack(side="left", padx=4)
+        ttk.Button(drive, text="Mark POI", command=self._dash_mark_poi).pack(side="left")
+        self._wardrive_status = ttk.Label(win, text="Manual wardrive: GPS module and SD card required. POIs require a GPS fix.", style="CardMuted.TLabel", wraplength=850)
+        self._wardrive_status.pack(anchor="w", **pad)
+
 
         ttk.Label(win, text="Access points per channel", style="CardMuted.TLabel",
                   font=UI_BOLD).pack(anchor="w", pady=(8, 2), **pad)
@@ -1421,30 +1508,61 @@ class MarauderGUI(tk.Tk):
         self._dash_tree.pack(side="left", fill="both", expand=True)
         self._dash_refresh()
 
+    def _dash_start_wardrive(self):
+        if not self.dev or self.running:
+            self._wardrive_status.configure(text="Connect first and stop the current operation before starting wardrive.")
+            return
+        self._wardrive_reply = False
+        self._do_send("wardrive")
+        self._wardrive_status.configure(text="Wardrive requested. Waiting for device output; the GUI cannot confirm SD writes.")
+        self.after(3500, self._dash_wardrive_timeout)
+
+    def _dash_wardrive_timeout(self):
+        if not getattr(self, '_wardrive_reply', False):
+            self._wardrive_status.configure(text="No wardrive confirmation. Check startup GPS detection, firmware GPS/SD support, and SD card. Stop before retrying.")
+
+    def _dash_mark_poi(self):
+        if not self.dev or not self.running or getattr(self, '_last_running_base', '').strip() != 'wardrive':
+            self._wardrive_status.configure(text="Start wardrive before marking a POI.")
+            return
+        label = self._poi_label.get().strip()
+        if len(label) > 80 or any(ord(c) < 32 or c in '<>&' for c in label):
+            self._wardrive_status.configure(text="Use a label of up to 80 characters without control characters or < > &.")
+            return
+        self._poi_reply = False
+        self._do_send('wardrivepoi' + (' ' + label if label else ''))
+        self._wardrive_status.configure(text="POI requested at the device's current GPS location. Waiting for acknowledgement.")
+        self.after(3500, self._dash_poi_timeout)
+
+    def _dash_poi_timeout(self):
+        if not getattr(self, '_poi_reply', False):
+            self._wardrive_status.configure(text="No POI acknowledgement. Firmware requires active wardrive, a GPS fix and an opened SD POI file.")
+
     def _dash_read_gps(self):
         if not self.dev:
             self._dash_gps.configure(text="GPS: connect first")
             return
-        self._dash_gps.configure(text="GPS: reading…")
-        self._do_send("gpsdata")
-        self.after(2200, self._dash_parse_gps)
+        self._dash_gps_values = {}
+        self._dash_gps.configure(text="GPS: requesting status without changing scan mode…")
+        for field in ('fix', 'sat', 'lat', 'lon', 'alt'):
+            if not self.dev:
+                return
+            self._do_send('gps -g ' + field)
+        job = getattr(self, '_dash_gps_job', None)
+        if job is not None:
+            self.after_cancel(job)
+        self._dash_gps_job = self.after(2200, self._dash_parse_gps)
 
     def _dash_parse_gps(self):
-        if self.dev:
-            self._do_send("stopscan", event_kind="STOP")
-        try:
-            txt = self.console.get("1.0", "end")[-2500:]
-        except Exception:
-            txt = ""
-
-        def g(key):
-            m = re.search(key + r"\s*:?\s*([\w.\-]+)", txt, re.I)
-            return m.group(1) if m else "?"
-        win = getattr(self, "_dash_win", None)
+        self._dash_gps_job = None
+        values = getattr(self, '_dash_gps_values', {})
+        win = getattr(self, '_dash_win', None)
         if win and win.winfo_exists():
-            self._dash_gps.configure(
-                text=f"GPS  Fix:{g('Fix')}  Sats:{g('Sats')}  "
-                     f"Lat:{g('Lat')}  Lon:{g('Lon')}  Alt:{g('Alt')}")
+            if not values:
+                self._dash_gps.configure(text="GPS: no status reply. Check device help, firmware target and startup GPS Not Found message.")
+            else:
+                self._dash_gps.configure(text='GPS  ' + '  '.join(
+                    key + ':' + values.get(key, '?') for key in ('Fix', 'Sats', 'Lat', 'Lon', 'Alt')))
 
     def _dash_refresh(self):
         win = getattr(self, "_dash_win", None)
@@ -1509,6 +1627,7 @@ class MarauderGUI(tk.Tk):
         self._survey_i = 0
         self._survey_mask_mac = tk.BooleanVar(value=False)
         self._survey_omit_ssid = tk.BooleanVar(value=False)
+        self._survey_log = tk.BooleanVar(value=True)
         pad = dict(padx=16)
 
         ttk.Label(win, text="Automated Survey", style="Title.TLabel").pack(anchor="w", pady=(14, 2), **pad)
@@ -1523,6 +1642,8 @@ class MarauderGUI(tk.Tk):
         self._survey_btn.pack(side="left")
         self._survey_status = ttk.Label(row, text="0 devices", style="CardMuted.TLabel")
         self._survey_status.pack(side="left", padx=12)
+        ttk.Checkbutton(row, text="Record session", variable=self._survey_log,
+                        style="Card.TCheckbutton").pack(side="left")
         ttk.Checkbutton(row, text="Mask MACs", style="Card.TCheckbutton",
                         variable=self._survey_mask_mac).pack(side="right")
         ttk.Checkbutton(row, text="Omit SSIDs", style="Card.TCheckbutton",
@@ -1562,6 +1683,7 @@ class MarauderGUI(tk.Tk):
             self._survey_btn.configure(text="▶ Start survey")
             if self.dev:
                 self._do_send("stopscan", event_kind="STOP")
+            self._finish_survey_recording()
             return
         if not self.dev:
             messagebox.showinfo("Not connected", "Connect to the Marauder first.")
@@ -1569,6 +1691,20 @@ class MarauderGUI(tk.Tk):
         if getattr(self, '_ai_survey_on', False):
             messagebox.showinfo("Survey running", "Stop the AI survey before starting another survey.")
             return
+        if self.running:
+            messagebox.showinfo("Operation running", "Stop the current operation before starting a survey.")
+            return
+        setting = getattr(self, '_survey_log', None)
+        if setting is not None and setting.get() and self._record_fp is None:
+            try:
+                path = os.path.join(self._logs_dir(), 'survey_' + _dt.datetime.now().strftime('%Y%m%d_%H%M%S_%f') + '.jsonl')
+                self._record_fp = open(path, 'x', encoding='utf-8')
+                self._survey_record_owned = True
+                self._record_event('meta', 'Continuous passive Wi-Fi survey; BLE acquisition is manual active scanning.')
+                self.log_event('RECORD', path)
+            except OSError as error:
+                messagebox.showerror("Recording failed", str(error))
+                return
         self._survey_on = True
         self._survey_btn.configure(text="■ Stop survey")
         self._do_send("recon wifi")
@@ -1578,14 +1714,16 @@ class MarauderGUI(tk.Tk):
         self._survey_job = None
         if not self._survey_on or not self.dev:
             self._survey_on = False
+            self._finish_survey_recording()
             self._survey_btn.configure(text="▶ Start survey")
             return
         self._survey_merge("ap")
         self._survey_merge("sta")
+        self._survey_merge("ble")
         self._survey_job = self.after(1200, self._survey_step)
 
     def _survey_merge(self, kind):
-        now = _dt.datetime.now().strftime("%H:%M:%S")
+        now = _dt.datetime.now().isoformat(timespec="seconds")
         for r in self._lists.get(kind, {}).values():
             key = r.get("bssid") or f"{kind}:{r.get('ssid','')}:{r.get('channel','')}"
             if not key:
@@ -1595,8 +1733,12 @@ class MarauderGUI(tk.Tk):
                 self._survey_inv[key] = {
                     "kind": kind, "bssid": r.get("bssid", ""), "ssid": r.get("ssid", ""),
                     "channel": r.get("channel", ""), "band": self._band(r.get("channel", "")),
-                    "rssi": r.get("rssi", ""), "first_seen": now, "last_seen": now, "count": 1, "gps": self._gps_fix}
+                    "rssi": r.get("rssi", ""), "first_seen": now, "last_seen": now, "count": 1, "gps": self._gps_fix, "_observation": r.get("_observed_at")}
             else:
+                observed = r.get("_observed_at")
+                if observed == e.get("_observation"):
+                    continue
+                e["_observation"] = observed
                 e["last_seen"] = now
                 if self._gps_fix:
                     e["gps"] = self._gps_fix
@@ -1611,6 +1753,8 @@ class MarauderGUI(tk.Tk):
                         e["rssi"] = r["rssi"]
                 except ValueError:
                     pass
+        while len(self._survey_inv) > 4096:
+            self._survey_inv.pop(next(iter(self._survey_inv)))
         self._survey_update_table()
 
     def _survey_update_table(self):
@@ -1658,7 +1802,7 @@ class MarauderGUI(tk.Tk):
             with open(fn, "w", newline="", encoding="utf-8") as f:
                 w = csv.DictWriter(f, fieldnames=list(rows[0].keys()))
                 w.writeheader()
-                w.writerows(rows)
+                w.writerows({key: spreadsheet_cell(value) for key, value in row.items()} for row in rows)
         else:  # kml
             fn = os.path.join(d, f"survey_{stamp}.kml")
             with open(fn, "w", encoding="utf-8") as f:
@@ -1701,7 +1845,7 @@ class MarauderGUI(tk.Tk):
         pad = dict(padx=16)
 
         ttk.Label(win, text="AI Assistant", style="Title.TLabel").pack(anchor="w", pady=(16, 2), **pad)
-        ttk.Label(win, text="Choose Ollama or Intel NPU for local analysis. Automatic commands are limited "
+        ttk.Label(win, text="Choose local AI or an optional cloud provider; cloud AI needs no GPU. Automatic commands are limited "
                   "to an explicit passive allowlist; all other suggestions need manual review. "
                   "Intel NPU uses a separate OpenVINO model folder.",
                   style="CardMuted.TLabel", wraplength=680, justify="left").pack(anchor="w", **pad)
@@ -1710,12 +1854,15 @@ class MarauderGUI(tk.Tk):
         backend_row.pack(fill='x', pady=(12, 0), **pad)
         ttk.Label(backend_row, text='Engine', style='CardMuted.TLabel').pack(side='left')
         self._ai_backend = ttk.Combobox(backend_row, state='readonly', width=26,
-                                       values=['Ollama', 'Intel NPU (OpenVINO)', 'Hybrid (NPU + GPU)'])
+                                       values=['Ollama', 'Intel NPU (OpenVINO)', 'Hybrid (NPU + GPU)', 'Cloud: OpenRouter Free', 'Cloud: Gemini'])
         self._ai_backend.set('Ollama')
+        self._ai_choice = 'Ollama'
         self._ai_backend.pack(side='left', padx=8)
         self._ai_backend.bind('<<ComboboxSelected>>', self._ai_backend_changed)
         ttk.Button(backend_row, text='Select NPU model folder...',
                    command=self._ai_browse_npu).pack(side='left')
+        self._cloud_config = {}
+        ttk.Button(backend_row, text='Cloud settings...', command=self._ai_cloud_settings).pack(side='left', padx=8)
         self._ai_verified = None
         self._ai_npu_folder = str(APP_DIR / 'models' / 'phi35-npu')
         self._hybrid = None
@@ -1736,6 +1883,7 @@ class MarauderGUI(tk.Tk):
         ttk.Button(row2, text="New chat", command=self._ai_newchat).pack(side="left", padx=8)
         self._ai_survey_btn = ttk.Button(row2, text="▶ Passive survey", command=self._ai_survey_toggle)
         self._ai_survey_btn.pack(side="left")
+        ttk.Button(row2, text="Save diagnostic report", command=self._ai_report).pack(side="left", padx=8)
         ttk.Checkbutton(row2, text="Let AI run passive commands", style="Card.TCheckbutton",
                         variable=self._ai_autorun).pack(side="right")
 
@@ -1772,23 +1920,106 @@ class MarauderGUI(tk.Tk):
                     s()
                     continue
                 self._ai_out_txt.insert("end", s)
+                if int(self._ai_out_txt.count("1.0", "end", "chars")[0]) > 250000:
+                    self._ai_out_txt.delete("1.0", "end-200000c")
                 self._ai_out_txt.see("end")
         except queue.Empty:
             pass
         win.after(80, self._ai_drain)
 
     def _ai_backend_changed(self, event=None):
+        if self._ai_busy:
+            self._ai_backend.set(self._ai_choice)
+            self._ai_out('Wait for the current AI request before switching engines.\n')
+            return
+        self._ai_choice = self._ai_backend.get()
         self._ai_ready = False
         self._ai_verified = None
+        self._ai_history = []
         self._ai_model.delete(0, 'end')
-        if self._ai_backend.get() == 'Intel NPU (OpenVINO)':
+        if self._ai_backend.get().startswith('Cloud: '):
+            import marauder_cloud
+            provider = self._ai_backend.get()[7:]
+            self._ai_model.insert(0, marauder_cloud.PROVIDERS[provider][1])
+        elif self._ai_backend.get() == 'Intel NPU (OpenVINO)':
             self._ai_model.insert(0, os.path.join(str(APP_DIR),
                                                'models', 'phi35-npu'))
         else:
             self._ai_model.insert(0, 'llama3.1:8b' if self._ai_backend.get().startswith('Hybrid') else marauder_ai.DEFAULT_MODEL)
         self._ai_set_status('Verify the selected engine', PALETTE['muted'])
 
+    def _ai_cloud_settings(self):
+        if self._ai_busy:
+            self._ai_out('Wait for the current AI request before changing cloud settings.\n')
+            return
+        import marauder_cloud
+        import marauder_secrets
+        provider = self._ai_backend.get()[7:] if self._ai_backend.get().startswith('Cloud: ') else 'OpenRouter Free'
+        saved = self._cloud_config.get(provider, {})
+        key = saved.get('key', '')
+        if not key:
+            try:
+                key = marauder_secrets.load(APP_DIR, provider)
+            except Exception:
+                key = ''
+        dialog = tk.Toplevel(self)
+        dialog.title('Cloud AI — ' + provider)
+        dialog.configure(bg=PALETTE['panel2'])
+        dialog.transient(self)
+        body = ttk.Frame(dialog, padding=20, style='Card.TFrame')
+        body.pack(fill='both', expand=True)
+        ttk.Label(body, text=provider, style='Title.TLabel').pack(anchor='w')
+        notice = ('Questions and replies are sent to this provider. Free quotas and availability vary. '
+                  'OpenRouter Free uses only free models, with no paid fallback. Gemini may charge '
+                  'on billed accounts and free-tier prompts may be used for product improvement. '
+                  'Review your provider account and avoid sensitive text in questions.')
+        ttk.Label(body, text=notice, wraplength=620, style='CardMuted.TLabel', justify='left').pack(anchor='w', pady=10)
+        ttk.Label(body, text='Your API key', style='Card.TLabel').pack(anchor='w')
+        key_var = tk.StringVar(value=key)
+        ttk.Entry(body, textvariable=key_var, show='•', width=65).pack(fill='x', pady=6)
+        consent = tk.BooleanVar(value=saved.get('consent', False))
+        share = tk.BooleanVar(value=saved.get('share', False))
+        remember = tk.BooleanVar(value=False)
+        ttk.Checkbutton(body, text='Allow sending my questions and conversation to this cloud provider', variable=consent).pack(anchor='w')
+        ttk.Checkbutton(body, text='Include observation counts, channels and RSSI summaries (no identifiers or raw logs)', variable=share).pack(anchor='w', pady=6)
+        ttk.Checkbutton(body, text='Remember key encrypted for this Windows user', variable=remember).pack(anchor='w')
+        row = ttk.Frame(body, style='Card.TFrame')
+        row.pack(fill='x', pady=(14,0))
+        def apply():
+            if self._ai_busy:
+                messagebox.showinfo('AI busy', 'Wait for the current request first.', parent=dialog)
+                return
+            entered = key_var.get().strip()
+            try:
+                marauder_cloud.validate(provider, marauder_cloud.PROVIDERS[provider][1], entered)
+                if remember.get():
+                    marauder_secrets.save(APP_DIR, provider, entered)
+                self._cloud_config[provider] = {'key': entered, 'consent': consent.get(), 'share': share.get()}
+                self._ai_backend.set('Cloud: ' + provider)
+                self._ai_backend_changed()
+                dialog.destroy()
+            except Exception as error:
+                messagebox.showerror('Cloud settings', str(error), parent=dialog)
+        def forget():
+            if self._ai_busy:
+                messagebox.showinfo('AI busy', 'Wait for the current request first.', parent=dialog)
+                return
+            try:
+                marauder_secrets.forget(APP_DIR, provider)
+                self._cloud_config.pop(provider, None)
+                key_var.set('')
+                self._ai_ready = False
+                self._ai_verified = None
+            except Exception:
+                messagebox.showerror('API key', 'Could not remove the stored key.', parent=dialog)
+        ttk.Button(row, text='Apply', style='Accent.TButton', command=apply).pack(side='right')
+        ttk.Button(row, text='Forget key', command=forget).pack(side='left')
+        url = 'https://openrouter.ai/keys' if provider == 'OpenRouter Free' else 'https://aistudio.google.com/apikey'
+        ttk.Button(row, text='Get an API key', command=lambda: webbrowser.open(url)).pack(side='left', padx=8)
+
     def _ai_browse_npu(self):
+        if self._ai_busy:
+            return
         folder = filedialog.askdirectory(title='Select an OpenVINO NPU model folder')
         if folder:
             self._ai_npu_folder = folder
@@ -1808,11 +2039,26 @@ class MarauderGUI(tk.Tk):
         model = self._ai_model.get().strip()
         backend = self._ai_backend.get()
         npu_folder = self._ai_npu_folder
+        cloud = dict(self._cloud_config.get(backend[7:], {})) if backend.startswith('Cloud: ') else None
         self._ai_ready = False
         self._ai_verified = None
         self._ai_busy = True
         self._ai_set_status('Loading model...', PALETTE['muted'])
         def work():
+            if backend.startswith('Cloud: '):
+                try:
+                    import marauder_cloud
+                    marauder_cloud.chat([{'role': 'user', 'content': 'Reply Ready.'}], backend[7:], model,
+                                        cloud.get('key', ''), consent=cloud.get('consent', False))
+                    self._ai_q.put(lambda: self._ai_mark_ready(backend, model))
+                    self._ai_set_status('Cloud ready · no local GPU needed', PALETTE['ok'])
+                    self._ai_out('Cloud verified. Only aggregate observations are shared if enabled. Questions are sent as typed.\n')
+                except Exception as error:
+                    self._ai_out(f'[Cloud error] {error}\n')
+                    self._ai_set_status('Cloud unavailable', PALETTE['warn'])
+                finally:
+                    self._ai_busy = False
+                return
             if backend.startswith('Hybrid'):
                 try:
                     import marauder_hybrid
@@ -1820,7 +2066,7 @@ class MarauderGUI(tk.Tk):
                     import urllib.request
                     marauder_hybrid.marauder_npu.load(npu_folder)
                     marauder_ai.chat([{'role': 'user', 'content': 'Reply OK.'}], model=model, num_ctx=4096)
-                    with urllib.request.urlopen(marauder_ai.OLLAMA_HOST + '/api/ps', timeout=10) as response:
+                    with marauder_ai._local_request(urllib.request.Request(marauder_ai.OLLAMA_HOST + '/api/ps'), timeout=10) as response:
                         loaded = json.load(response).get('models', [])
                     if not any(item.get('name') == model and item.get('size_vram', 0) > 0 for item in loaded):
                         raise RuntimeError('Ollama did not report GPU memory use for this model.')
@@ -1878,6 +2124,11 @@ class MarauderGUI(tk.Tk):
             self._ai_ready = True
 
     def _ai_generate(self, messages, model, backend, stream_cb=None):
+        if backend.startswith('Cloud: '):
+            import marauder_cloud
+            config = self._cloud_config.get(backend[7:], {})
+            return marauder_cloud.chat(messages, backend[7:], model, config.get('key', ''),
+                                       consent=config.get('consent', False), stream_cb=stream_cb)
         if backend.startswith('Hybrid'):
             return self._hybrid.chat(messages, model, stream_cb)
         if backend == 'Intel NPU (OpenVINO)':
@@ -1887,6 +2138,10 @@ class MarauderGUI(tk.Tk):
         return marauder_ai.chat(messages, model=model, stream_cb=stream_cb)
 
     def _ai_context(self):
+        if self._ai_backend.get().startswith('Cloud: '):
+            import marauder_cloud
+            config = self._cloud_config.get(self._ai_backend.get()[7:], {})
+            return marauder_cloud.aggregate_context(self._lists) if config.get('share', False) else 'Observation sharing is disabled.'
         try:
             events = self.eventlog.get("1.0", "end")  # already redacted
         except Exception:
@@ -1896,6 +2151,9 @@ class MarauderGUI(tk.Tk):
                                             self._lists.get("host", {}), events)
 
     def _ai_newchat(self):
+        if self._ai_busy:
+            self._ai_out("Wait for the current response before clearing history.\n")
+            return
         self._ai_history = []
         self._ai_out("\n[new conversation — history cleared]\n")
 
@@ -1919,12 +2177,14 @@ class MarauderGUI(tk.Tk):
             self._hybrid.refresh(context)
             context = self._hybrid.context(context)
         content = f"{user_text}\n\n[Current observations]\n{context}"
+        self._ai_history = self._ai_history[-6:]
         self._ai_history.append({"role": "user", "content": content})
+        messages = [dict(turn) for turn in self._ai_history]
 
         def work():
             acc = []
             try:
-                self._ai_generate(self._ai_history, model=model, backend=backend,
+                self._ai_generate(messages, model=model, backend=backend,
                                  stream_cb=lambda s: (acc.append(s), self._ai_out(s)))
             except Exception as e:  # noqa: BLE001
                 self._ai_out(f"\n[AI error] {e}\n")
@@ -1942,26 +2202,49 @@ class MarauderGUI(tk.Tk):
         self._ai_q.put(lambda: self._ai_dispatch_main(cmd))
 
     def _ai_dispatch_main(self, cmd):
-        """Run a model-requested command: passive ones auto-run if allowed; anything
-        that transmits is queued in the Raw box for the operator to approve."""
+        """Main-thread dispatch; only exact receive-only commands may be queued."""
         if not marauder_ai.is_passive(cmd):
-            self._ai_out(f"[unverified suggestion] {cmd}  →  not loaded or executed.\n")
+            self._ai_out(f"[unverified suggestion] {cmd} → not loaded or executed.\n")
             return
-        if marauder_ai.is_active(cmd):
-            win = getattr(self, "_ai_win", None)
-            if win and win.winfo_exists():
-                win.after(0, lambda: self.raw_var.set(cmd))
-            self._ai_out(f"[needs approval — transmitting] {cmd}  →  loaded in Raw box; review and Send.\n")
-        elif marauder_ai.is_passive(cmd) and self._ai_autorun.get() and self.dev:
-            win = getattr(self, "_ai_win", None)
-            if win and win.winfo_exists():
-                win.after(0, lambda c=cmd: self._do_send(c))
+        if getattr(self, 'running', False) and (command_runs(cmd) or cmd in {'stopscan', 'recon stop'}):
+            self._ai_out(f"[manual review] {cmd} would change the running operation; not queued.\n")
+            return
+        if self._ai_autorun.get() and self.dev:
+            self._do_send(cmd)
             self._ai_out(f"[auto-run passive] {cmd}\n")
         else:
-            win = getattr(self, "_ai_win", None)
-            if win and win.winfo_exists():
-                win.after(0, lambda: self.raw_var.set(cmd))
-            self._ai_out(f"[suggested] {cmd}  →  loaded in Raw box (enable auto-run, or Send).\n")
+            self.raw_var.set(cmd)
+            self._ai_out(f"[suggested passive] {cmd} → review in Raw and Send.\n")
+
+    def _ai_report(self):
+        if not self._ai_ready or self._ai_busy:
+            self._ai_out("Enable a model and wait for the current response first.\n")
+            return
+        model, backend = self._ai_model.get().strip(), self._ai_backend.get()
+        if self._ai_verified != (backend, model):
+            self._ai_out("Verify the selected model first.\n")
+            return
+        path = filedialog.asksaveasfilename(defaultextension='.md', filetypes=[('Markdown report', '*.md')])
+        if not path:
+            return
+        observations = self._ai_context()
+        self._ai_busy = True
+        def work():
+            try:
+                response = self._ai_generate([{'role': 'user', 'content':
+                    'Write a concise diagnostic report: observations, limitations, and recommended '
+                    'manual checks. Do not emit RUN commands. Never conclude a network is secure '
+                    'from discovery or handshake capture alone.\n\n' + observations}], model, backend)
+                with open(path, 'w', encoding='utf-8') as output:
+                    output.write('# Marauder V8 diagnostic report\n\n'
+                        'Model-generated analysis; verify conclusions.\n\n' + response +
+                        '\n\n## Observation snapshot\n\n```text\n' + observations.replace('```', '~~~') + '\n```\n')
+                self._ai_out(f"[report saved] {path}\n")
+            except Exception as error:
+                self._ai_out(f"[report failed] {error}\n")
+            finally:
+                self._ai_busy = False
+        threading.Thread(target=work, daemon=True).start()
 
     def _ai_analyze(self):
         self._ai_out("\n--- Analysis ---\n")
@@ -1981,6 +2264,9 @@ class MarauderGUI(tk.Tk):
             return
         if self._ai_busy:
             return
+        if self._ai_verified != (self._ai_backend.get(), self._ai_model.get().strip()):
+            self._ai_out("Verify the selected model first.\n")
+            return
         self._ai_busy = True
         model = self._ai_model.get().strip() or marauder_ai.DEFAULT_MODEL
         backend = self._ai_backend.get()
@@ -1995,13 +2281,7 @@ class MarauderGUI(tk.Tk):
                 if not cmd:
                     self._ai_out("\n[no suggestion]\n")
                     return
-                active = marauder_ai.is_active(cmd)
-                tag = "passive" if marauder_ai.is_passive(cmd) else "needs manual review"
-                self._ai_out(f"\nSuggested ({tag}): {cmd}\n"
-                             "Loaded into the Raw box — review and press Send to run it.\n")
-                win = getattr(self, "_ai_win", None)
-                if win and win.winfo_exists():
-                    win.after(0, lambda: self.raw_var.set(cmd))
+                self._ai_dispatch(cmd)
             except Exception as e:  # noqa: BLE001
                 self._ai_out(f"\n[AI error] {e}\n")
             finally:
@@ -2021,6 +2301,9 @@ class MarauderGUI(tk.Tk):
             return
         if getattr(self, '_survey_on', False):
             self._ai_out("Stop Automated Survey before starting another survey.\n")
+            return
+        if self.running:
+            self._ai_out("Stop the current operation before starting a survey.\n")
             return
         self._ai_survey_on = True
         self._ai_survey_btn.configure(text="■ Stop survey")
@@ -2101,6 +2384,9 @@ class MarauderGUI(tk.Tk):
         try:
             while True:
                 s = self._fw_q.get_nowait()
+                if callable(s):
+                    s()
+                    continue
                 self._fw_log.insert("end", s)
                 self._fw_log.see("end")
         except queue.Empty:
@@ -2143,6 +2429,7 @@ class MarauderGUI(tk.Tk):
     def _fw_fetch(self):
         if self._fw_busy:
             return
+        self._fw_busy = True
         fwdir = os.path.join(str(APP_DIR), "firmware")
 
         def work():
@@ -2156,14 +2443,14 @@ class MarauderGUI(tk.Tk):
                 self._fw_out(f"Latest: {rel['tag']}  ->  {asset['name']} "
                              f"({asset['size'] // 1024} KB)\nDownloading…\n")
                 os.makedirs(fwdir, exist_ok=True)
-                dest = os.path.join(fwdir, asset["name"])
-                marauder_flash.download_asset(asset["url"], dest)
+                dest = marauder_flash.safe_asset_path(fwdir, asset["name"])
+                marauder_flash.download_asset(asset["url"], dest, expected_size=asset["size"])
                 self._fw_out(f"Saved: {dest}\n")
-                win = getattr(self, "_fw_win", None)
-                if win and win.winfo_exists():
-                    win.after(0, lambda: self._fw_file.set(dest))
+                self._fw_q.put(lambda: self._fw_file.set(dest))
             except Exception as e:  # noqa: BLE001
                 self._fw_out(f"[fetch error] {e}\n")
+            finally:
+                self._fw_busy = False
         threading.Thread(target=work, daemon=True).start()
 
     def _fw_chipinfo(self):
@@ -2172,10 +2459,14 @@ class MarauderGUI(tk.Tk):
                 self._fw_out("No port available — connect or select a port first.\n")
             return
         self._fw_free_port()
+        self._fw_busy = True
         port = self._fw_port
 
         def work():
-            marauder_flash.run_esptool(marauder_flash.chipinfo_args(port), self._fw_out)
+            try:
+                marauder_flash.run_esptool(marauder_flash.chipinfo_args(port), self._fw_out)
+            finally:
+                self._fw_busy = False
         threading.Thread(target=work, daemon=True).start()
 
     def _fw_flash(self):
@@ -2218,9 +2509,7 @@ class MarauderGUI(tk.Tk):
             self._fw_out("\n✓ Flash complete. The device should reboot into the new firmware.\n"
                          if ok else "\n✗ Flash failed — see the output above.\n")
             self._fw_busy = False
-            win = getattr(self, "_fw_win", None)
-            if win and win.winfo_exists():
-                win.after(0, lambda: self._fw_flash_btn.configure(state="normal"))
+            self._fw_q.put(lambda: self._fw_flash_btn.configure(state="normal"))
         threading.Thread(target=work, daemon=True).start()
 
     # ---- PCAP ------------------------------------------------------------
@@ -2282,20 +2571,47 @@ class MarauderGUI(tk.Tk):
         entry.update(name=name, rssi=rssi, last_seen=now, count=entry["count"] + 1)
         if idx is None:
             idx = next((i for i, row in self._lists["ble"].items() if row.get("key") == key), str(len(self._lists["ble"])))
-        self._lists["ble"][idx] = {"key": key, "index": idx, "ssid": name, "bssid": addr, "rssi": rssi, "channel": ""}
+        self._lists["ble"][idx] = {"key": key, "index": idx, "ssid": name, "bssid": addr, "rssi": rssi, "channel": "", "_observed_at": time.monotonic()}
         return True
 
     def _track_gps(self, line):
-        lat = re.search(r"\bLat(?:itude)?\s*[:=]\s*(-?\d+(?:\.\d+)?)", line, re.I)
-        lon = re.search(r"\b(?:Lon|Longitude)\s*[:=]\s*(-?\d+(?:\.\d+)?)", line, re.I)
-        if lat and lon:
-            a, b = float(lat.group(1)), float(lon.group(1))
-            if -90 <= a <= 90 and -180 <= b <= 180 and (a or b):
-                self._gps_fix = (a, b)
+        if hasattr(self, '_wardrive_status'):
+            if 'POI tagged:' in line:
+                self._poi_reply = True
+                self._wardrive_status.configure(text="Firmware acknowledged POI. Verify /wardrive_poi_*.gpx on the SD card; acknowledgement does not prove the write succeeded.")
+            elif 'GPS Not Found' in line or 'GPS not supported' in line:
+                self._wardrive_status.configure(text="Device reports GPS unavailable. Check GPS wiring, startup detection and firmware target.")
+            elif re.match(r'^\s*\d+ \| ', line):
+                self._wardrive_reply = True
+                self._wardrive_status.configure(text="Wardrive observations received. Device stores wardrive logs and POIs on its SD card when available.")
+
+        values = re.findall(r'\b(Fix|Sats|Lat(?:itude)?|Lon(?:gitude)?|Alt)\s*[:=]\s*([^\s,]+)', line, re.I)
+        if not hasattr(self, '_gps_parts'):
+            self._gps_parts = {}
+        for name, value in values:
+            key = {'latitude': 'Lat', 'longitude': 'Lon'}.get(name.lower(), name.title())
+            if hasattr(self, '_dash_gps_values'):
+                self._dash_gps_values[key] = value
+            if key == 'Fix':
+                self._gps_valid = value.lower() in {'yes', 'true', '1', '3d', '2d'}
+                if not self._gps_valid:
+                    self._gps_fix = None
+                    self._gps_parts.clear()
+            if key in {'Lat', 'Lon'}:
+                try:
+                    self._gps_parts[key] = (float(value), time.monotonic())
+                except ValueError:
+                    pass
+        if 'Lat' in self._gps_parts and 'Lon' in self._gps_parts:
+            lat, t_lat = self._gps_parts['Lat']
+            lon, t_lon = self._gps_parts['Lon']
+            if getattr(self, '_gps_valid', None) is not False and abs(t_lat-t_lon) <= 10:
+                if -90 <= lat <= 90 and -180 <= lon <= 180 and (lat or lon):
+                    self._gps_fix = (lat, lon)
 
     def open_ble_devices(self):
         win = self._new_tool_window()
-        win.title("BLE devices — passive inventory")
+        win.title("BLE inventory — manual scan may transmit")
         cols = ("name", "mac", "rssi", "first_seen", "last_seen", "count")
         tree = ttk.Treeview(win, columns=cols, show="headings")
         for col in cols:
@@ -2328,7 +2644,7 @@ class MarauderGUI(tk.Tk):
         bar = ttk.Frame(win)
         bar.pack(fill="x")
         ttk.Button(bar, text="Refresh view", command=refresh).pack(side="left")
-        ttk.Button(bar, text="Request ls", command=lambda: self._do_send("ls")).pack(side="left")
+        ttk.Button(bar, text="Request ls", command=lambda: self._do_send("ls /")).pack(side="left")
         refresh()
 
     def export_inventory_report(self):
@@ -2347,9 +2663,17 @@ class MarauderGUI(tk.Tk):
     def _record_event(self, direction, payload):
         if self._record_fp:
             import json
-            self._record_fp.write(json.dumps({"time": _dt.datetime.now().isoformat(), "direction": direction,
-                                               "data": payload}, ensure_ascii=False) + "\n")
-            self._record_fp.flush()
+            try:
+                self._record_fp.write(json.dumps({"time": _dt.datetime.now().isoformat(),
+                    "direction": direction, "data": payload}, ensure_ascii=False) + "\n")
+                self._record_fp.flush()
+            except (OSError, ValueError) as error:
+                try:
+                    self._record_fp.close()
+                except OSError:
+                    pass
+                self._record_fp = None
+                self._emit(f"[session recording stopped: {error}]\n", 'sys')
 
     def toggle_recording(self):
         from tkinter import filedialog
@@ -2364,28 +2688,50 @@ class MarauderGUI(tk.Tk):
             messagebox.showinfo("Recording", "Recording serial traffic; credentials may appear in received data")
 
     def replay_session(self):
-        import json
-        from tkinter import filedialog
+        from marauder_sessions import received_chunks
+        if self.dev or getattr(self, '_connecting', False):
+            messagebox.showwarning("Replay", "Disconnect hardware before replay.")
+            return
+        if self._replay_iter is not None:
+            messagebox.showinfo("Replay", "A replay is already running.")
+            return
         path = filedialog.askopenfilename(filetypes=[("Session JSONL", "*.jsonl")])
         if not path:
             return
-        if self.dev:
-            messagebox.showwarning("Replay", "Disconnect hardware before replay to avoid mixing live and recorded data")
+        self._line_buf = ""
+        self._parse_mode = None
+        self._replay_iter = received_chunks(path)
+        self._replay_count = 0
+        self._replay_step()
+
+    def _replay_step(self):
+        if self._replay_iter is None:
             return
-        count = 0
-        with open(path, encoding="utf-8") as f:
-            for line in f:
-                try:
-                    item = json.loads(line)
-                    if item.get("direction") == "rx" and isinstance(item.get("data"), str):
-                        self._ingest(item["data"])
-                        count += 1
-                except (ValueError, TypeError):
-                    continue
-        messagebox.showinfo("Replay", f"Replayed {count} received chunks (no commands transmitted)")
+        if self.dev:
+            self._replay_iter.close()
+            self._replay_iter = None
+            return
+        try:
+            for _ in range(16):
+                self._ingest(next(self._replay_iter))
+                self._replay_count += 1
+        except StopIteration:
+            self._replay_iter = None
+            messagebox.showinfo("Replay", f"Replayed {self._replay_count} RX chunks; no commands transmitted.")
+            return
+        except (OSError, ValueError) as error:
+            self._replay_iter.close()
+            self._replay_iter = None
+            messagebox.showerror("Replay", str(error))
+            return
+        self.after(20, self._replay_step)
 
     # ---- shutdown --------------------------------------------------------
     def _on_close(self):
+        self._cancel_surveys()
+        if self._replay_iter is not None:
+            self._replay_iter.close()
+            self._replay_iter = None
         try:
             if self.dev:
                 self._disconnect()

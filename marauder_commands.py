@@ -37,6 +37,10 @@ def P(label, flag=None, kind="text", choices=None, placeholder="", default="",
 
 
 def C(name, base, help, params=None):
+    legacy = {'sigmon', 'sniffesp', 'randapmac', 'randstamac', 'cloneapmac',
+              'clonestamac', 'btwardrive', 'gpstracker'}
+    if base.split()[0] in legacy:
+        help = "Compatibility unverified in current official firmware. Check device help before sending.\n\n" + help
     return {"name": name, "base": base, "help": help, "params": params or []}
 
 
@@ -233,7 +237,7 @@ CATALOG = [
     ("Bluetooth", [
         ("Recon & Sniff", [
             C("Recon BLE", "recon ble",
-              "Starts BLE reconnaissance — discovers nearby Bluetooth devices.", []),
+              "Starts manual BLE reconnaissance. Official firmware uses active scanning and may transmit scan requests; excluded from autonomous passive analysis.", []),
             C("Bluetooth Sniff", "sniffbt",
               "Sniffs BLE advertising traffic. Optionally filter to a device type.",
               [P("Type", "-t", "choice", ["airtag", "flipper", "flock", "meta"],
@@ -307,13 +311,13 @@ CATALOG = [
               "Cycles through brightness levels.", []),
         ]),
         ("GPS", [
-            C("GPS Data", "gpsdata", "Prints the current GPS data block.", []),
+            C("GPS Data", "gpsdata", "Starts GPS display/stream mode and may stop the current scan. Use GPS Query for non-invasive status reads.", []),
             C("GPS Query", "gps",
-              "Queries a specific GPS field.",
-              [P("Field", None, "choice",
-                 ["fix", "sat", "lon", "lat", "alt", "date", "accuracy", "text", "nmea"]),
-               P("Text form", "-t", "bool", help="Human-readable output."),
-               P("Group", "-g", "bool", help="Grouped output.")]),
+              "Read a GPS field with gps -g <field>, without changing the radio scan mode. No reply can indicate firmware incompatibility or GPS Not Found at startup.",
+              [P("Field", "-g", "choice",
+                 ["fix", "sat", "lon", "lat", "alt", "date", "accuracy", "text", "nmea"], default="fix")]),
+            C("GPS Tracking Mode", "gps -t",
+              "Starts GPS tracking and changes the scan mode. Stop Scan ends tracking.", []),
             C("NMEA Stream", "nmea", "Streams raw NMEA sentences from the GPS.", []),
             C("GPS POI", "gpspoi",
               "Start / mark / end a GPS point-of-interest capture.",

@@ -1,4 +1,4 @@
-Marauder V8 Control 0.4.0b Beta — Windows
+Marauder V8 Control 0.4.2b — Windows
 
 PORTABLE EXE
 Extract the Windows ZIP and launch MarauderV8-Control.exe. No Python required.

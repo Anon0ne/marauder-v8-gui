@@ -73,12 +73,14 @@ def summarize(path: str, max_packets: int | None = None) -> dict:
             endian + "HHiIII", gh[4:24]
         )
 
+        if (_ver_maj, _ver_min) != (2, 4) or not 0 < snaplen <= 262144:
+            raise PcapError("Unsupported PCAP version or invalid snap length")
         count = 0
         first_ts = last_ts = None
         total_orig = 0
         truncated = False
         corrupt = False
-        sane_max = max(snaplen, 262144)   # never trust a record bigger than this
+        sane_max = 262144   # never trust a record bigger than this
         rec_hdr = struct.Struct(endian + "IIII")
         while True:
             if max_packets is not None and count >= max_packets:
@@ -93,7 +95,7 @@ def summarize(path: str, max_packets: int | None = None) -> dict:
             ts_sec, ts_frac, incl_len, orig_len = rec_hdr.unpack(rh)
             # Validate the capture length against sanity and the file size before
             # trusting it to advance the cursor.
-            if incl_len > sane_max:
+            if incl_len > sane_max or incl_len > snaplen or incl_len > orig_len or ts_frac >= ts_div:
                 corrupt = True
                 break
             if incl_len > (size - f.tell()):
@@ -108,7 +110,7 @@ def summarize(path: str, max_packets: int | None = None) -> dict:
             if incl_len:
                 f.seek(incl_len, os.SEEK_CUR)
 
-    duration = (last_ts - first_ts) if (first_ts and last_ts) else 0.0
+    duration = (last_ts - first_ts) if (first_ts is not None and last_ts is not None) else 0.0
     return {
         "path": path,
         "format": "pcap",
