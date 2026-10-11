@@ -2,6 +2,10 @@
 
 0.4.2b Beta improves reliability and GPS/wardrive controls. The major Workspace GUI remains experimental; community feedback will determine whether we retain it. Read [development changes](CHANGELOG-development.md), [audit and plan](docs/AUDIT_AND_PLAN.md), [firmware comparison](docs/COMMAND_COMPARISON.md), and [validation](docs/VALIDATION.md).
 
+![Workspace GUI](docs/screenshots/workspace-0.4.2b.png)
+
+_The Workspace interface (illustrative data, device disconnected)._
+
 ## What it does
 
 The dark **Workspace** GUI drives the ESP32 Marauder V8 (ESP32‑C5) over USB serial:
@@ -16,7 +20,7 @@ The dark **Workspace** GUI drives the ESP32 Marauder V8 (ESP32‑C5) over USB se
   **firmware updater**, and an optional **local/cloud AI assistant**.
 
 **→ Full usage walkthrough and the complete console‑command reference:
-[docs/USER_GUIDE.md](docs/USER_GUIDE.md).**
+[docs/USER_GUIDE.md](docs/USER_GUIDE.md). Quick answers: [FAQ](docs/FAQ.md).**
 
 ## Console commands
 

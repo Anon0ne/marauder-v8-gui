@@ -1420,6 +1420,11 @@ class MarauderGUI(tk.Tk):
         project.pack(anchor="w", padx=22, pady=(12, 0))
         project.bind("<Button-1>", lambda e: webbrowser.open(github))
         project.bind("<Return>", lambda e: webbrowser.open(github))
+        faq = ttk.Label(win, text="Help, User Guide and FAQ →", style="Card.TLabel",
+                        foreground=PALETTE["accent"], cursor="hand2", takefocus=True)
+        faq.pack(anchor="w", padx=22, pady=(4, 0))
+        faq.bind("<Button-1>", lambda e: webbrowser.open(github + "/blob/main/docs/FAQ.md"))
+        faq.bind("<Return>", lambda e: webbrowser.open(github + "/blob/main/docs/FAQ.md"))
 
         row = ttk.Frame(win, style="Card.TFrame")
         row.pack(fill="x", padx=22, pady=18, side="bottom")

@@ -1,10 +1,15 @@
 """Marauder V8 Beta: persistent navigation and embedded tool pages."""
 import queue
 import threading
+import webbrowser
 import tkinter as tk
 from tkinter import ttk, messagebox
 
 from marauder_gui import MarauderGUI, PALETTE, BAUD, Marauder, __version__
+
+REPO_URL = "https://github.com/Anon0ne/marauder-v8-gui"
+GUIDE_URL = REPO_URL + "/blob/main/docs/USER_GUIDE.md"
+FAQ_URL = REPO_URL + "/blob/main/docs/FAQ.md"
 
 PALETTE.update(bg='#0c111b', panel='#131b29', panel2='#131b29', entry='#0c111b',
                border='#273448', fg='#e8eef7', muted='#99abc1', accent='#16b8a6')
@@ -133,6 +138,15 @@ class WorkspaceGUI(MarauderGUI):
         menu = tk.Menu(settings, tearoff=False)
         menu.add_command(label='Port, baud, and auto-connect...', command=self._connection_settings)
         settings.configure(menu=menu)
+        helpb = ttk.Menubutton(header, text='Help ▾')
+        helpb.pack(side='right', padx=8)
+        hm = tk.Menu(helpb, tearoff=False)
+        hm.add_command(label='User Guide (GitHub)', command=lambda: webbrowser.open(GUIDE_URL))
+        hm.add_command(label='FAQ (GitHub)', command=lambda: webbrowser.open(FAQ_URL))
+        hm.add_command(label='Project page (GitHub)', command=lambda: webbrowser.open(REPO_URL))
+        hm.add_separator()
+        hm.add_command(label='About', command=self.show_about)
+        helpb.configure(menu=hm)
         # Keep the existing port discovery and connection API, with settings out
         # of the main workspace instead of crowding its header.
         self.port_cb = ttk.Combobox(header, state='readonly')
