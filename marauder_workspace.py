@@ -121,7 +121,7 @@ class WorkspaceGUI(MarauderGUI):
                  font=('Segoe UI',24)).pack(side='left', padx=(0,12))
         brand = ttk.Frame(header)
         brand.pack(side='left')
-        ttk.Label(brand, text='MARAUDER    V8 / 0.4.2b Beta', font=('Segoe UI',15,'bold')).pack(anchor='w')
+        ttk.Label(brand, text='MARAUDER    V8 / 0.4.2', font=('Segoe UI',15,'bold')).pack(anchor='w')
         ttk.Label(brand, text='Radio reconnaissance workspace', style='Muted.TLabel').pack(anchor='w')
         self.connect_btn = ttk.Button(header, text='Connect', style='Accent.TButton',
                                        command=self.toggle_connection)

@@ -2,6 +2,40 @@
 
 0.4.2b Beta improves reliability and GPS/wardrive controls. The major Workspace GUI remains experimental; community feedback will determine whether we retain it. Read [development changes](CHANGELOG-development.md), [audit and plan](docs/AUDIT_AND_PLAN.md), [firmware comparison](docs/COMMAND_COMPARISON.md), and [validation](docs/VALIDATION.md).
 
+## What it does
+
+The dark **Workspace** GUI drives the ESP32 Marauder V8 (ESP32‑C5) over USB serial:
+
+- **Command catalog** grouped by radio (WiFi / Bluetooth / Device), mirroring the
+  on‑device menu — pick a command, fill parameters, and the exact string builds with
+  inline per‑command help.
+- **Target pickers** (double‑click scanned APs / stations / SSIDs / hosts) and an
+  **in‑place Stop** for long‑running operations.
+- **Live RF dashboard**, **BLE inventory/history**, **Automated passive survey**
+  (JSON/CSV/KML), **SD browser**, **PCAP inspector**, **session record/replay**,
+  **firmware updater**, and an optional **local/cloud AI assistant**.
+
+**→ Full usage walkthrough and the complete console‑command reference:
+[docs/USER_GUIDE.md](docs/USER_GUIDE.md).**
+
+## Console commands
+
+Everything rides on a 115200‑baud serial CLI. In the GUI, type into the **Raw** box,
+or use the standalone CLI:
+
+```bash
+python marauder.py ports            # list serial ports
+python marauder.py fwhelp           # dump the firmware's own command list (ground truth)
+python marauder.py send "list -a"   # one command
+python marauder.py monitor          # interactive console
+```
+
+Common device commands: `recon wifi` / `recon ble` (discover), `list -a/-s/-c/-b`
+(view AP/station/SSID/BLE lists), `select -a 0,2` (choose targets), `sniffpmkid`
+(capture handshakes/PMKID), `attack -t deauth` (authorized targets only),
+`blespam -t sourapple`, `wardrive`, `channel -s 6`, `stopscan`. The
+[User Guide](docs/USER_GUIDE.md) documents all 96 catalog commands with their syntax.
+
 ## Run and build
 
 Windows portable package: extract and run MarauderV8-Control.exe. Source: install requirements.txt and launch marauder_workspace.py. BUILD_AND_INSTALL.cmd builds and installs the Marauder V8 Control shortcut. For the repeatable tested build, use Python 3.12.10 x64:
