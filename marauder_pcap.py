@@ -53,7 +53,10 @@ def _capture_file(path) -> str:
     directories, FIFOs and device nodes keeps the reader from blocking on or
     reading something that is not a capture file.
     """
-    resolved = os.path.realpath(os.fspath(path))
+    raw = os.fspath(path)
+    if ".." in raw.replace("\\", "/").split("/"):
+        raise PcapError("Invalid file path")
+    resolved = os.path.realpath(raw)
     if not os.path.isfile(resolved):
         raise PcapError(f"Not a regular file: {os.path.basename(resolved)}")
     return resolved

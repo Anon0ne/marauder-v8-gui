@@ -9,6 +9,8 @@ MAX_CHUNK_CHARS = 65536
 
 def _session_file(path):
     """Resolve a user-chosen session path; only existing regular files replay."""
+    if '..' in Path(path).parts:
+        raise ValueError('Invalid file path')
     resolved = Path(path).resolve(strict=True)
     if not resolved.is_file():
         raise ValueError('Session replay requires a regular file.')
