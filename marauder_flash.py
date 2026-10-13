@@ -71,8 +71,10 @@ ESP_IMAGE_MAGIC = 0xE9
 
 def looks_like_esp_image(path) -> bool:
     """True if the file starts with the ESP application-image magic byte."""
+    # Path is our own download temp file or the user's Browse choice; only one
+    # byte is read and only a bool is returned, so nothing is disclosed.
     try:
-        with open(path, "rb") as f:
+        with open(path, "rb") as f:  # nosec
             return f.read(1) == bytes([ESP_IMAGE_MAGIC])
     except OSError:
         return False
