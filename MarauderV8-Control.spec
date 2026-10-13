@@ -41,6 +41,7 @@ exe = EXE(
     a.datas,
     [],
     name='MarauderV8-Control',
+    icon='marauder.ico',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
