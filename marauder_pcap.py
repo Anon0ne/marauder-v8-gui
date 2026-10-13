@@ -66,7 +66,9 @@ def summarize(path: str, max_packets: int | None = None) -> dict:
     """Return a dict summarizing a .pcap file without external libraries."""
     resolved = _capture_file(path)
     size = os.path.getsize(resolved)
-    with open(resolved, "rb") as f:
+    # User-chosen path (file dialog or CLI), validated by _capture_file:
+    # no '..' segments, resolved, regular file only.
+    with open(resolved, "rb") as f:  # nosec
         head = f.read(4)
         if head == _PCAPNG_MAGIC:
             return {
