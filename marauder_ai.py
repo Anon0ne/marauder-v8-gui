@@ -22,7 +22,9 @@ import urllib.request
 from urllib.parse import urlparse
 import ipaddress
 
-OLLAMA_HOST = "http://localhost:11434"
+# An IP literal, not "localhost": that name can resolve to ::1 first, where any
+# local process may listen on 11434 even while Ollama owns 127.0.0.1:11434.
+OLLAMA_HOST = "http://127.0.0.1:11434"
 DEFAULT_MODEL = "gpt-oss:20b"
 
 SYSTEM_PROMPT = (
@@ -87,12 +89,13 @@ def _local_request(req, timeout):
     parsed = urlparse(req.full_url)
     if parsed.scheme not in {'http', 'https'} or parsed.username or parsed.password:
         raise ValueError('Local AI requires a loopback HTTP endpoint')
+    # Loopback IP literals only; host names are not resolved.
     try:
-        local = parsed.hostname == 'localhost' or ipaddress.ip_address(parsed.hostname).is_loopback
+        local = ipaddress.ip_address(parsed.hostname or '').is_loopback
     except ValueError:
         local = False
     if not local:
-        raise ValueError('Local AI observations may only be sent to loopback')
+        raise ValueError('Local AI observations may only be sent to a loopback IP address')
     opener = urllib.request.build_opener(urllib.request.ProxyHandler({}), _NoRedirect())
     return opener.open(req, timeout=timeout)
 

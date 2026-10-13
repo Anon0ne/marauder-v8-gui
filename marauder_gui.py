@@ -2456,8 +2456,9 @@ class MarauderGUI(tk.Tk):
                              f"({asset['size'] // 1024} KB)\nDownloading…\n")
                 os.makedirs(fwdir, exist_ok=True)
                 dest = marauder_flash.safe_asset_path(fwdir, asset["name"])
-                marauder_flash.download_asset(asset["url"], dest, expected_size=asset["size"])
-                self._fw_out(f"Saved: {dest}\n")
+                marauder_flash.download_asset(asset["url"], dest, expected_size=asset["size"],
+                                              expected_sha256=asset["sha256"])
+                self._fw_out(f"Verified SHA-256 {asset['sha256']}\nSaved: {dest}\n")
                 self._fw_q.put(lambda: self._fw_file.set(dest))
             except Exception as e:  # noqa: BLE001
                 self._fw_out(f"[fetch error] {e}\n")
@@ -2491,6 +2492,11 @@ class MarauderGUI(tk.Tk):
             return
         if not path or not os.path.isfile(path):
             messagebox.showwarning("No firmware", "Fetch the latest firmware or Browse to a .bin first.")
+            return
+        if not marauder_flash.looks_like_esp_image(path):
+            messagebox.showerror("Not firmware",
+                                 f"{os.path.basename(path)} is not an ESP application image "
+                                 "(missing 0xE9 header). Nothing was flashed.")
             return
         # Version comparison: warn on a downgrade / same-version re-flash.
         cur = self._detect_current_fw_version()
