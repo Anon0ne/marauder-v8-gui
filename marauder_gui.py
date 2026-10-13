@@ -1800,11 +1800,13 @@ class MarauderGUI(tk.Tk):
         if fmt == "json":
             import json as _json
             fn = os.path.join(d, f"survey_{stamp}.json")
-            with open(fn, "w", encoding="utf-8") as f:
+            # App logs dir + timestamp; no external input reaches this path.
+            with open(fn, "w", encoding="utf-8") as f:  # nosec
                 _json.dump(rows, f, indent=2)
         elif fmt == "csv":
             fn = os.path.join(d, f"survey_{stamp}.csv")
-            with open(fn, "w", newline="", encoding="utf-8") as f:
+            # App logs dir + timestamp; no external input reaches this path.
+            with open(fn, "w", newline="", encoding="utf-8") as f:  # nosec
                 w = csv.DictWriter(f, fieldnames=list(rows[0].keys()))
                 w.writeheader()
                 w.writerows({key: spreadsheet_cell(value) for key, value in row.items()} for row in rows)
