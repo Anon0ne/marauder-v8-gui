@@ -151,6 +151,15 @@ class ReliabilityTests(unittest.TestCase):
                              struct.pack('<IIII', 1, 0, 1, 1) + b'b')
             self.assertEqual(marauder_pcap.summarize(path)['duration_s'], 1.0)
 
+    def test_pcap_and_replay_reject_non_regular_files(self):
+        with tempfile.TemporaryDirectory() as folder:
+            with self.assertRaises(marauder_pcap.PcapError):
+                marauder_pcap.summarize(folder)
+            with self.assertRaises(ValueError):
+                list(marauder_sessions.received_chunks(folder))
+            with self.assertRaises(OSError):
+                list(marauder_sessions.received_chunks(Path(folder) / 'missing.jsonl'))
+
 
 if __name__ == '__main__':
     unittest.main()
