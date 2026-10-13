@@ -1,5 +1,6 @@
 """Bounded, receive-only session reader. No transport access."""
 import json
+import os
 from pathlib import Path
 
 MAX_SESSION_BYTES = 128 * 1024 * 1024
@@ -9,9 +10,10 @@ MAX_CHUNK_CHARS = 65536
 
 def _session_file(path):
     """Resolve a user-chosen session path; only existing regular files replay."""
-    if '..' in path:
-        raise Exception('Invalid file path')
-    resolved = Path(path).resolve(strict=True)
+    raw = os.fspath(path)
+    if '..' in raw.replace('\\', '/').split('/'):
+        raise ValueError('Invalid file path')
+    resolved = Path(raw).resolve(strict=True)
     if not resolved.is_file():
         raise ValueError('Session replay requires a regular file.')
     return resolved
