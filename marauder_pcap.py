@@ -45,10 +45,25 @@ class PcapError(Exception):
     pass
 
 
+def _capture_file(path) -> str:
+    """Resolve a capture path and require it to be an existing regular file.
+
+    The path is always one the user picked (file dialog or CLI argument), so
+    there is no base directory to confine it to. Resolving it and refusing
+    directories, FIFOs and device nodes keeps the reader from blocking on or
+    reading something that is not a capture file.
+    """
+    resolved = os.path.realpath(os.fspath(path))
+    if not os.path.isfile(resolved):
+        raise PcapError(f"Not a regular file: {os.path.basename(resolved)}")
+    return resolved
+
+
 def summarize(path: str, max_packets: int | None = None) -> dict:
     """Return a dict summarizing a .pcap file without external libraries."""
-    size = os.path.getsize(path)
-    with open(path, "rb") as f:
+    resolved = _capture_file(path)
+    size = os.path.getsize(resolved)
+    with open(resolved, "rb") as f:
         head = f.read(4)
         if head == _PCAPNG_MAGIC:
             return {

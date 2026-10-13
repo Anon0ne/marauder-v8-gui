@@ -7,11 +7,20 @@ MAX_LINE_BYTES = 512 * 1024
 MAX_CHUNK_CHARS = 65536
 
 
+def _session_file(path):
+    """Resolve a user-chosen session path; only existing regular files replay."""
+    resolved = Path(path).resolve(strict=True)
+    if not resolved.is_file():
+        raise ValueError('Session replay requires a regular file.')
+    return resolved
+
+
 def received_chunks(path):
-    if Path(path).stat().st_size > MAX_SESSION_BYTES:
+    resolved = _session_file(path)
+    if resolved.stat().st_size > MAX_SESSION_BYTES:
         raise ValueError('Session exceeds the 128 MiB replay limit.')
     total = 0
-    with open(path, 'rb') as session:
+    with open(resolved, 'rb') as session:
         while True:
             line = session.readline(MAX_LINE_BYTES + 1)
             if not line:
