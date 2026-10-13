@@ -39,8 +39,15 @@ def save(folder, provider, key):
     path = key_path(folder, provider)
     path.parent.mkdir(parents=True, exist_ok=True)
     temporary = path.with_suffix('.tmp')
-    temporary.write_bytes(encrypted)
-    os.replace(temporary, path)
+    try:
+        temporary.write_bytes(encrypted)
+        os.replace(temporary, path)
+    finally:
+        temporary.unlink(missing_ok=True)
+
+
+def stored(folder, provider):
+    return key_path(folder, provider).exists()
 
 
 def load(folder, provider):
@@ -53,4 +60,7 @@ def load(folder, provider):
 
 
 def forget(folder, provider):
-    key_path(folder, provider).unlink(missing_ok=True)
+    # Remove the key and any leftover temporary copy from an interrupted save.
+    path = key_path(folder, provider)
+    path.with_suffix('.tmp').unlink(missing_ok=True)
+    path.unlink(missing_ok=True)
