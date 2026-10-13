@@ -1800,11 +1800,13 @@ class MarauderGUI(tk.Tk):
         if fmt == "json":
             import json as _json
             fn = os.path.join(d, f"survey_{stamp}.json")
-            with open(fn, "w", encoding="utf-8") as f:
+            # App logs dir + timestamp; no external input reaches this path.
+            with open(fn, "w", encoding="utf-8") as f:  # nosec
                 _json.dump(rows, f, indent=2)
         elif fmt == "csv":
             fn = os.path.join(d, f"survey_{stamp}.csv")
-            with open(fn, "w", newline="", encoding="utf-8") as f:
+            # App logs dir + timestamp; no external input reaches this path.
+            with open(fn, "w", newline="", encoding="utf-8") as f:  # nosec
                 w = csv.DictWriter(f, fieldnames=list(rows[0].keys()))
                 w.writeheader()
                 w.writerows({key: spreadsheet_cell(value) for key, value in row.items()} for row in rows)
@@ -1984,7 +1986,10 @@ class MarauderGUI(tk.Tk):
         ttk.Entry(body, textvariable=key_var, show='•', width=65).pack(fill='x', pady=6)
         consent = tk.BooleanVar(value=saved.get('consent', False))
         share = tk.BooleanVar(value=saved.get('share', False))
-        remember = tk.BooleanVar(value=False)
+        try:
+            remember = tk.BooleanVar(value=marauder_secrets.stored(APP_DIR, provider))
+        except Exception:
+            remember = tk.BooleanVar(value=False)
         ttk.Checkbutton(body, text='Allow sending my questions and conversation to this cloud provider', variable=consent).pack(anchor='w')
         ttk.Checkbutton(body, text='Include observation counts, channels and RSSI summaries (no identifiers or raw logs)', variable=share).pack(anchor='w', pady=6)
         ttk.Checkbutton(body, text='Remember key encrypted for this Windows user', variable=remember).pack(anchor='w')
@@ -1999,6 +2004,8 @@ class MarauderGUI(tk.Tk):
                 marauder_cloud.validate(provider, marauder_cloud.PROVIDERS[provider][1], entered)
                 if remember.get():
                     marauder_secrets.save(APP_DIR, provider, entered)
+                else:
+                    marauder_secrets.forget(APP_DIR, provider)
                 self._cloud_config[provider] = {'key': entered, 'consent': consent.get(), 'share': share.get()}
                 self._ai_backend.set('Cloud: ' + provider)
                 self._ai_backend_changed()

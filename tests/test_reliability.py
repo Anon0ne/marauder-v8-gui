@@ -216,6 +216,21 @@ class ReliabilityTests(unittest.TestCase):
             with self.assertRaises(OSError):
                 list(marauder_sessions.received_chunks(Path(folder) / 'missing.jsonl'))
 
+    def test_pcap_and_replay_reject_parent_directory_segments(self):
+        with tempfile.TemporaryDirectory() as folder:
+            inner = Path(folder) / 'inner'
+            inner.mkdir()
+            target = Path(folder) / 'capture..v2.pcap'
+            target.write_bytes(b'')
+            sneaky = str(inner) + '/../' + target.name
+            with self.assertRaises(marauder_pcap.PcapError):
+                marauder_pcap.summarize(sneaky)
+            with self.assertRaises(ValueError):
+                list(marauder_sessions.received_chunks(sneaky))
+            # '..' inside a file name is not a traversal segment.
+            with self.assertRaisesRegex(marauder_pcap.PcapError, 'too short'):
+                marauder_pcap.summarize(target)
+
 
 if __name__ == '__main__':
     unittest.main()
