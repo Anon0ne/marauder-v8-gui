@@ -9,6 +9,7 @@
 - Escaped formula-like SSIDs in CSV exports. JSON retains original observations.
 - Downloaded firmware into a bounded temporary file and replaced the destination only after length validation. Reject unsafe filenames and non-GitHub HTTPS endpoints; match the exact V8 suffix.
 - Validated PCAP version, fixed maximum snapshot/record sizes, record lengths and fractional timestamps.
+- Raised the NPU `huggingface-hub` floor to 1.32.0 so pip cannot resolve a version affected by the six Aikido-reported advisories (the NPU build lock already pins 2.2.0).
 
 ## Serial, sessions and GUI reliability
 
