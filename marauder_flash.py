@@ -15,6 +15,7 @@ also writes the three support images (for a fresh or bricked board).
 
 from __future__ import annotations
 
+import hashlib
 import io
 import json
 import os
@@ -39,7 +40,11 @@ OFFSET_APP = 0x10000
 
 
 def fetch_latest_release(timeout: int = 20) -> dict:
-    """Return {'tag': str, 'assets': [{'name','url','size'}, ...]} for the latest release."""
+    """Return {'tag': str, 'assets': [{'name','url','size','sha256'}, ...]} for the latest release.
+
+    `sha256` comes from the asset `digest` GitHub computes at upload time
+    ("sha256:<hex>"); it is None when GitHub reports none (assets uploaded
+    before digests existed)."""
     req = urllib.request.Request(
         API_LATEST,
         headers={"User-Agent": "marauder-v8-gui", "Accept": "application/vnd.github+json"},
@@ -47,11 +52,32 @@ def fetch_latest_release(timeout: int = 20) -> dict:
     with urllib.request.urlopen(req, timeout=timeout) as r:
         data = json.load(r)
     assets = [
-        {"name": a["name"], "url": a["browser_download_url"], "size": a.get("size", 0)}
+        {"name": a["name"], "url": a["browser_download_url"], "size": a.get("size", 0),
+         "sha256": parse_sha256_digest(a.get("digest"))}
         for a in data.get("assets", [])
         if a.get("name", "").lower().endswith(".bin")
     ]
     return {"tag": data.get("tag_name", ""), "assets": assets}
+
+
+def parse_sha256_digest(value):
+    """'sha256:<64 hex>' -> lowercase hex, else None."""
+    m = re.fullmatch(r"sha256:([0-9a-fA-F]{64})", value or "")
+    return m.group(1).lower() if m else None
+
+
+ESP_IMAGE_MAGIC = 0xE9
+
+
+def looks_like_esp_image(path) -> bool:
+    """True if the file starts with the ESP application-image magic byte."""
+    # Path is our own download temp file or the user's Browse choice; only one
+    # byte is read and only a bool is returned, so nothing is disclosed.
+    try:
+        with open(path, "rb") as f:  # nosec
+            return f.read(1) == bytes([ESP_IMAGE_MAGIC])
+    except OSError:
+        return False
 
 
 def pick_asset(assets: list, keyword: str):
@@ -71,14 +97,23 @@ def safe_asset_path(folder, name):
     return str(Path(folder).resolve() / name)
 
 
-def download_asset(url, dest_path, progress_cb=None, timeout=60, expected_size=None):
-    """Bounded atomic download. A failed fetch never replaces existing firmware."""
+def download_asset(url, dest_path, progress_cb=None, timeout=60, expected_size=None,
+                   expected_sha256=None):
+    """Bounded atomic download. A failed fetch never replaces existing firmware.
+
+    `expected_sha256` (required) is the digest the GitHub release API published
+    for this asset; the bytes must hash to it and start with the ESP image
+    magic, or nothing is written."""
     allowed = {'github.com', 'objects.githubusercontent.com', 'release-assets.githubusercontent.com'}
     def validate(value):
         parsed = urlparse(value)
         if parsed.scheme != 'https' or parsed.hostname not in allowed or parsed.username or parsed.password:
             raise ValueError('Firmware downloads require an official GitHub HTTPS asset URL')
     validate(url)
+    expected_sha256 = (expected_sha256 or "").lower()
+    if not re.fullmatch(r"[0-9a-f]{64}", expected_sha256):
+        raise ValueError('The release does not publish a SHA-256 digest for this asset; '
+                         'download and verify it manually, then use Browse')
     limit = 64 * 1024 * 1024
     if expected_size is not None and not 0 < expected_size <= limit:
         raise ValueError('Invalid firmware asset size')
@@ -94,6 +129,7 @@ def download_asset(url, dest_path, progress_cb=None, timeout=60, expected_size=N
             with tempfile.NamedTemporaryFile(dir=dest.parent, suffix='.part', delete=False) as output:
                 temporary = Path(output.name)
                 got = 0
+                digest = hashlib.sha256()
                 while True:
                     chunk = response.read(65536)
                     if not chunk:
@@ -101,11 +137,16 @@ def download_asset(url, dest_path, progress_cb=None, timeout=60, expected_size=N
                     got += len(chunk)
                     if got > limit or (expected_size is not None and got > expected_size):
                         raise ValueError('Firmware download exceeds expected size')
+                    digest.update(chunk)
                     output.write(chunk)
                     if progress_cb:
                         progress_cb(got, expected_size or total)
             if got == 0 or (total and got != total) or (expected_size is not None and got != expected_size):
                 raise ValueError('Incomplete firmware download')
+            if digest.hexdigest() != expected_sha256:
+                raise ValueError('Firmware SHA-256 does not match the digest published by GitHub')
+            if not looks_like_esp_image(temporary):
+                raise ValueError('Downloaded file is not an ESP firmware image')
         os.replace(temporary, dest)
         temporary = None
         return str(dest)

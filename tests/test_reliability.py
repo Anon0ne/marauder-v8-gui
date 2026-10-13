@@ -1,3 +1,4 @@
+import hashlib
 import io
 import json
 import struct
@@ -79,6 +80,14 @@ class ReliabilityTests(unittest.TestCase):
                 marauder_ai.chat([], host='https://example.com')
             opener.assert_not_called()
 
+    def test_local_ai_uses_loopback_ip_literals_only(self):
+        self.assertEqual(marauder_ai.urlparse(marauder_ai.OLLAMA_HOST).hostname, '127.0.0.1')
+        with patch('marauder_ai.urllib.request.build_opener') as opener:
+            for host in ('http://localhost:11434', 'http://localhost.example:11434'):
+                with self.assertRaises(ValueError):
+                    marauder_ai.chat([], host=host)
+            opener.assert_not_called()
+
     def test_duplicate_run_lines_dispatch_once(self):
         self.assertEqual(marauder_ai.extract_run_commands('RUN: info\nRUN: info'), ['info'])
 
@@ -131,9 +140,56 @@ class ReliabilityTests(unittest.TestCase):
             path.write_bytes(b'original')
             with patch('marauder_flash.urllib.request.urlopen', return_value=response):
                 with self.assertRaises(ValueError):
-                    marauder_flash.download_asset(response.geturl(), path, expected_size=9)
+                    marauder_flash.download_asset(response.geturl(), path, expected_size=9,
+                                                  expected_sha256='0' * 64)
             self.assertEqual(path.read_bytes(), b'original')
             self.assertEqual(list(Path(folder).glob('*.part')), [])
+
+    def _fake_download(self, payload):
+        response = io.BytesIO(payload)
+        response.headers = {'Content-Length': str(len(payload))}
+        response.geturl = lambda: 'https://github.com/owner/repo/releases/download/v1/app_v8.bin'
+        return response
+
+    def _download(self, payload, sha256):
+        response = self._fake_download(payload)
+        folder = tempfile.TemporaryDirectory()
+        self.addCleanup(folder.cleanup)
+        path = Path(folder.name) / 'firmware.bin'
+        path.write_bytes(b'original')
+        with patch('marauder_flash.urllib.request.urlopen', return_value=response):
+            try:
+                marauder_flash.download_asset(response.geturl(), path, expected_size=len(payload),
+                                              expected_sha256=sha256)
+            finally:
+                self.assertEqual(list(Path(folder.name).glob('*.part')), [])
+        return path
+
+    def test_download_accepts_image_matching_published_digest(self):
+        payload = b'\xe9' + b'firmware' * 8
+        path = self._download(payload, hashlib.sha256(payload).hexdigest().upper())
+        self.assertEqual(path.read_bytes(), payload)
+
+    def test_download_rejects_digest_mismatch(self):
+        payload = b'\xe9' + b'tampered' * 8
+        with self.assertRaisesRegex(ValueError, 'SHA-256'):
+            self._download(payload, hashlib.sha256(b'genuine').hexdigest())
+
+    def test_download_requires_published_digest(self):
+        for missing in (None, '', 'md5:abc'):
+            with self.assertRaisesRegex(ValueError, 'digest'):
+                self._download(b'\xe9data', missing)
+
+    def test_download_rejects_non_esp_image(self):
+        payload = b'<html>not firmware</html>'
+        with self.assertRaisesRegex(ValueError, 'ESP firmware'):
+            self._download(payload, hashlib.sha256(payload).hexdigest())
+
+    def test_release_digest_parsing(self):
+        good = 'sha256:' + 'Ab' * 32
+        self.assertEqual(marauder_flash.parse_sha256_digest(good), 'ab' * 32)
+        for bad in (None, '', 'sha256:xyz', 'sha512:' + 'a' * 64, 'sha256:' + 'a' * 63):
+            self.assertIsNone(marauder_flash.parse_sha256_digest(bad))
 
     def test_pcap_rejects_hostile_snaplen(self):
         header = struct.pack('<IHHIIII', 0xa1b2c3d4, 2, 4, 0, 0, 0xffffffff, 105)
@@ -159,6 +215,21 @@ class ReliabilityTests(unittest.TestCase):
                 list(marauder_sessions.received_chunks(folder))
             with self.assertRaises(OSError):
                 list(marauder_sessions.received_chunks(Path(folder) / 'missing.jsonl'))
+
+    def test_pcap_and_replay_reject_parent_directory_segments(self):
+        with tempfile.TemporaryDirectory() as folder:
+            inner = Path(folder) / 'inner'
+            inner.mkdir()
+            target = Path(folder) / 'capture..v2.pcap'
+            target.write_bytes(b'')
+            sneaky = str(inner) + '/../' + target.name
+            with self.assertRaises(marauder_pcap.PcapError):
+                marauder_pcap.summarize(sneaky)
+            with self.assertRaises(ValueError):
+                list(marauder_sessions.received_chunks(sneaky))
+            # '..' inside a file name is not a traversal segment.
+            with self.assertRaisesRegex(marauder_pcap.PcapError, 'too short'):
+                marauder_pcap.summarize(target)
 
 
 if __name__ == '__main__':

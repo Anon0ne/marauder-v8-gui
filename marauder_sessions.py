@@ -22,7 +22,9 @@ def received_chunks(path):
     if resolved.stat().st_size > MAX_SESSION_BYTES:
         raise ValueError('Session exceeds the 128 MiB replay limit.')
     total = 0
-    with open(resolved, 'rb') as session:
+    # User-chosen path (file dialog), validated by _session_file:
+    # no '..' segments, resolved, regular file only.
+    with open(resolved, 'rb') as session:  # nosec
         while True:
             line = session.readline(MAX_LINE_BYTES + 1)
             if not line:

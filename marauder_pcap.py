@@ -53,7 +53,10 @@ def _capture_file(path) -> str:
     directories, FIFOs and device nodes keeps the reader from blocking on or
     reading something that is not a capture file.
     """
-    resolved = os.path.realpath(os.fspath(path))
+    raw = os.fspath(path)
+    if ".." in raw.replace("\\", "/").split("/"):
+        raise PcapError("Invalid file path")
+    resolved = os.path.realpath(raw)
     if not os.path.isfile(resolved):
         raise PcapError(f"Not a regular file: {os.path.basename(resolved)}")
     return resolved
@@ -63,7 +66,9 @@ def summarize(path: str, max_packets: int | None = None) -> dict:
     """Return a dict summarizing a .pcap file without external libraries."""
     resolved = _capture_file(path)
     size = os.path.getsize(resolved)
-    with open(resolved, "rb") as f:
+    # User-chosen path (file dialog or CLI), validated by _capture_file:
+    # no '..' segments, resolved, regular file only.
+    with open(resolved, "rb") as f:  # nosec
         head = f.read(4)
         if head == _PCAPNG_MAGIC:
             return {

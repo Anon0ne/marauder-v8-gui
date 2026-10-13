@@ -46,3 +46,26 @@ class CloudTests(unittest.TestCase):
             self.assertEqual(secrets.load(folder, 'OpenRouter Free'), 'dummy-test-key')
             secrets.forget(folder, 'OpenRouter Free')
             self.assertEqual(secrets.load(folder, 'OpenRouter Free'), '')
+
+    def test_forget_removes_key_and_leftover_temporary_copy(self):
+        with tempfile.TemporaryDirectory() as folder:
+            path = secrets.key_path(folder, 'Gemini')
+            path.parent.mkdir(parents=True)
+            path.write_bytes(b'encrypted')
+            path.with_suffix('.tmp').write_bytes(b'encrypted')
+            self.assertTrue(secrets.stored(folder, 'Gemini'))
+            secrets.forget(folder, 'Gemini')
+            self.assertFalse(path.exists())
+            self.assertFalse(path.with_suffix('.tmp').exists())
+            self.assertFalse(secrets.stored(folder, 'Gemini'))
+            secrets.forget(folder, 'Gemini')
+
+    def test_failed_save_leaves_no_temporary_copy(self):
+        with tempfile.TemporaryDirectory() as folder:
+            with patch.object(secrets, '_protect', return_value=b'encrypted'), \
+                    patch.object(secrets.os, 'replace', side_effect=OSError('disk')):
+                with self.assertRaises(OSError):
+                    secrets.save(folder, 'Gemini', 'dummy-test-key')
+            path = secrets.key_path(folder, 'Gemini')
+            self.assertFalse(path.exists())
+            self.assertFalse(path.with_suffix('.tmp').exists())
