@@ -15,11 +15,11 @@ if ((${#missing[@]})); then
     sudo apt-get update
     sudo apt-get install -y "${missing[@]}"
   else
-    echo "Install Python 3.10-3.13, Tkinter, and venv using your package manager, then rerun." >&2
+    echo "Install Python 3.10-3.14, Tkinter, and venv using your package manager, then rerun." >&2
     exit 1
   fi
 fi
-python3 -c 'import sys; assert (3,10) <= sys.version_info[:2] < (3,14), sys.version'
+python3 -c 'import sys; assert (3,10) <= sys.version_info[:2] < (3,15), sys.version'
 python3 -m venv .venv
 .venv/bin/python -m pip install -r requirements.txt
 .venv/bin/python -m pip check

@@ -13,7 +13,8 @@ MANUAL SETUP (Debian/Ubuntu)
   python3 -m venv .venv
   .venv/bin/python -m pip install -r requirements.txt
   .venv/bin/python marauder_workspace.py
-Use Python 3.10-3.13. Other distributions use their own package manager.
+Use Python 3.10-3.14. Other distributions use their own package manager.
+Kali note: the repo is public, so you can also `git clone https://github.com/Anon0ne/marauder-v8-gui.git` and run bash INSTALL_AND_RUN.sh for the latest source.
 
 If serial access is denied on Debian/Ubuntu:
   sudo usermod -aG dialout "$USER"
