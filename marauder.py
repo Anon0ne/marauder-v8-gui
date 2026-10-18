@@ -40,9 +40,22 @@ class Marauder:
         self.baud = baud
         self._write_lock = threading.Lock()
         self._decoder = codecs.getincrementaldecoder("utf-8")("replace")
-        self.ser = serial.Serial(port, baud, timeout=timeout, write_timeout=1.0)
-        # Give the ESP32 a moment after the port opens (it may reset).
-        time.sleep(1.5)
+        # ESP32 dev boards (and the Marauder) wire the USB-UART DTR/RTS lines to
+        # the EN (reset) and GPIO0 (boot) pins through the classic auto-reset
+        # circuit. pyserial asserts both lines when it opens a port by default,
+        # which resets the device -- or drops it into the ROM bootloader -- every
+        # time the GUI connects. Configure the port unopened and deassert DTR/RTS
+        # before open() so a normal connect never toggles the reset/boot pins.
+        self.ser = serial.Serial()
+        self.ser.port = port
+        self.ser.baudrate = baud
+        self.ser.timeout = timeout
+        self.ser.write_timeout = 1.0
+        self.ser.dtr = False
+        self.ser.rts = False
+        self.ser.open()
+        # Brief settle for USB-UART enumeration before draining stale bytes.
+        time.sleep(0.2)
         self.ser.reset_input_buffer()
 
     # ---- low-level -------------------------------------------------------
