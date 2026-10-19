@@ -48,7 +48,18 @@ class ReliabilityTests(unittest.TestCase):
     def test_constructor_has_finite_write_timeout(self):
         with patch('marauder.serial.Serial') as factory, patch('marauder.time.sleep'):
             Marauder('COM99')
-        self.assertEqual(factory.call_args.kwargs['write_timeout'], 1.0)
+        self.assertEqual(factory.return_value.write_timeout, 1.0)
+
+    def test_constructor_does_not_assert_reset_lines(self):
+        # DTR/RTS must be deasserted before open() so connecting never resets
+        # or bootloaders the ESP32 (they drive EN and GPIO0 via the auto-reset
+        # circuit). Regression guard for the GUI "killing" the device on connect.
+        with patch('marauder.serial.Serial') as factory, patch('marauder.time.sleep'):
+            Marauder('COM99')
+        ser = factory.return_value
+        self.assertFalse(ser.dtr)
+        self.assertFalse(ser.rts)
+        ser.open.assert_called_once()
 
     def test_partial_write_does_not_retry_or_flush(self):
         device = Marauder.__new__(Marauder)
