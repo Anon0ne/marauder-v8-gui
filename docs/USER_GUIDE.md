@@ -45,8 +45,14 @@ boot delay and, on some boards, a changed COM number (auto‑connect follows it)
 - **Automated Survey** — passive WiFi recon that starts once and collects until Stop,
   deduping devices over time, with privacy controls (mask MACs / omit SSIDs) and
   **JSON / CSV / KML** export. GPS‑tagged placemarks when a fix is present.
-- **SD browser** — read‑only listing of the device's SD card (`ls`); captures stay on
-  the card (pull it to open `.pcap` in Wireshark).
+- **SD files** — a file manager for the device's SD card: browse folders (double‑click
+  to open), **Download** files to the PC, **Upload** files from the PC, **New folder**,
+  **Rename / move**, **Copy**, **Delete** (with confirmation) and **Disk usage**.
+  Transfers are CRC‑checked; a failed upload never replaces the old file. Needs firmware
+  with the `sd` serial command; on older firmware the buttons report an error. The same
+  operations work from the command line:
+  `python marauder.py sd ls /`, `sd get /pcaps/x.pcap`, `sd put notes.txt /notes.txt`,
+  `sd cp`, `sd mv`, `sd rm [-r]`, `sd mkdir`, `sd df`, `sd tree`.
 - **Firmware updater** — fetch/flash the official `_v8` build; the chip is
   auto‑detected and the installed‑vs‑target version is compared before flashing.
 - **Session record / replay** — record the console to a file and replay it (receive‑only).
@@ -226,6 +232,7 @@ brackets; a leading `-x` is the flag the GUI adds for you.
 **Storage (SD)**
 
 - `ls [Path]` - Lists a directory on the SD card.
+- `sd ls|tree|stat|df|cat|crc|mkdir|rm [-r]|mv|cp [-r]|get|put` - SD file manager (newer firmware; see SD files above).
 - `backupspiffs` - Copies internal SPIFFS to /spiffs on SD.
 - `backupstatus` - Inspects the /spiffs backup on SD.
 - `restorespiffs` - Restores SPIFFS from /spiffs on SD.

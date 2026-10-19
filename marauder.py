@@ -16,6 +16,7 @@ Requires: pyserial  (pip install pyserial)
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 import time
 import threading
@@ -263,6 +264,62 @@ def cmd_help_fw(args) -> int:
     return 0
 
 
+def cmd_sd(args) -> int:
+    """SD card file manager (needs firmware with the `sd` command)."""
+    from marauder_sdfs import SDError, SDFiles
+
+    def progress(done, total):
+        pct = 100 if not total else done * 100 // total
+        print(f"\r{done}/{total} bytes ({pct}%)", end="", file=sys.stderr, flush=True)
+
+    m = Marauder(resolve_port(args), args.baud)
+    fs = SDFiles(m)
+    try:
+        op, a = args.sd_op, args.paths
+        need = {"ls": 0, "tree": 0, "df": 0, "stat": 1, "cat": 1, "crc": 1, "mkdir": 1,
+                "rm": 1, "get": 1, "put": 1, "mv": 2, "cp": 2}[op]
+        if len(a) < need:
+            print(f"sd {op} needs {need} path(s)", file=sys.stderr)
+            return 2
+        if op in ("ls", "tree"):
+            rows = fs.ls(a[0] if a else "/") if op == "ls" else fs.tree(a[0] if a else "/")
+            for e in rows:
+                print(f"{'<DIR>':>12}  {e.name}" if e.is_dir else f"{e.size:>12}  {e.name}")
+        elif op == "df":
+            total, used = fs.df()
+            print(f"Total {total / 1048576:.1f} MB, used {used / 1048576:.1f} MB, "
+                  f"free {(total - used) / 1048576:.1f} MB")
+        elif op == "stat":
+            print(fs._run("stat", f'"{a[0]}"'))
+        elif op == "cat":
+            print(fs.cat(a[0]))
+        elif op == "crc":
+            crc, size = fs.crc(a[0])
+            print(f"{crc:08x}  {size} bytes")
+        elif op == "mkdir":
+            fs.mkdir(a[0])
+        elif op == "rm":
+            fs.rm(a[0], recursive=args.recursive)
+        elif op == "mv":
+            print(fs.mv(a[0], a[1]))
+        elif op == "cp":
+            print(fs.cp(a[0], a[1], recursive=args.recursive))
+        elif op == "get":
+            local = a[1] if len(a) > 1 else os.path.basename(a[0].rstrip("/"))
+            n = fs.download(a[0], local, progress)
+            print(f"\nSaved {n} bytes to {local}", file=sys.stderr)
+        elif op == "put":
+            remote = a[1] if len(a) > 1 else "/" + os.path.basename(a[0])
+            n = fs.upload(a[0], remote, progress)
+            print(f"\nWrote {n} bytes to {remote}", file=sys.stderr)
+    except SDError as error:
+        print(f"\nSD error: {error}", file=sys.stderr)
+        return 1
+    finally:
+        m.close()
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(description="Host interface for the ESP32 Marauder (V8).")
     p.add_argument("--port", help="Serial port (e.g. COM5 or /dev/ttyUSB0). Auto-detected if omitted.")
@@ -288,6 +345,14 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("--ble", action="store_true", help="Use BLE recon instead of WiFi.")
     sp.add_argument("--duration", type=float, default=15.0, help="Scan seconds (default 15).")
     sp.set_defaults(func=cmd_scan)
+
+    sp = sub.add_parser("sd", help="SD card file manager: ls, tree, get, put, cp, mv, rm, mkdir, df ...",
+                        description="get <card file> [pc file] downloads; put <pc file> [card path] uploads.")
+    sp.add_argument("sd_op", choices=["ls", "tree", "df", "stat", "cat", "crc", "mkdir",
+                                      "rm", "mv", "cp", "get", "put"])
+    sp.add_argument("paths", nargs="*", help="Card paths (and a PC path for get/put).")
+    sp.add_argument("-r", "--recursive", action="store_true", help="Recurse for rm/cp of folders.")
+    sp.set_defaults(func=cmd_sd)
 
     return p
 

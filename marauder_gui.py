@@ -2646,24 +2646,182 @@ class MarauderGUI(tk.Tk):
         ttk.Button(bar, text="List BLE (device)", command=lambda: self._do_send("list -b")).pack(side="left")
         refresh()
 
+    def _sd_job(self, work, done=None, label="SD"):
+        """Run work(SDFiles) off the UI thread with the background reader paused."""
+        from marauder_sdfs import SDFiles
+        if not self.dev:
+            messagebox.showinfo("Not connected", "Connect to the Marauder first.")
+            return
+        if getattr(self, "_sd_busy", False):
+            messagebox.showinfo(label, "Another SD operation is still running.")
+            return
+        self._sd_busy = True
+        device = self.dev
+        self.reader_stop.set()
+        if self.reader_thread:
+            self.reader_thread.join(timeout=1.0)
+
+        def finish(result, error):
+            self._sd_busy = False
+            if self.dev is device:
+                self.reader_stop.clear()
+                self.reader_thread = threading.Thread(target=self._reader_loop, daemon=True)
+                self.reader_thread.start()
+            if error is not None:
+                self._emit(f"[{label} failed: {error}]\n", "sys")
+                messagebox.showerror(label, str(error))
+            elif done:
+                done(result)
+
+        def run():
+            try:
+                result, error = work(SDFiles(device)), None
+            except Exception as exc:
+                result, error = None, exc
+            self._ui_queue.put(lambda: finish(result, error))
+
+        threading.Thread(target=run, daemon=True).start()
+
     def open_sd_browser(self):
+        from marauder_sdfs import join
         win = self._new_tool_window()
-        win.title("SD listing — read-only")
-        tree = ttk.Treeview(win, columns=("name", "size"), show="headings")
-        tree.heading("name", text="File / directory")
-        tree.heading("size", text="Size (bytes; 0 may indicate directory)")
-        tree.column("name", width=450)
-        tree.column("size", width=210)
+        win.title("SD card files")
+        cwd = tk.StringVar(value="/")
+        status = tk.StringVar(value="Connect, then press Refresh.")
+
+        nav = ttk.Frame(win)
+        nav.pack(fill="x")
+        ttk.Button(nav, text="⬆ Up", command=lambda: go(parent(cwd.get()))).pack(side="left")
+        path_entry = ttk.Entry(nav, textvariable=cwd)
+        path_entry.pack(side="left", fill="x", expand=True, padx=4)
+        path_entry.bind("<Return>", lambda _e: go(cwd.get()))
+        ttk.Button(nav, text="Refresh", command=lambda: go(cwd.get())).pack(side="left")
+
+        tree = ttk.Treeview(win, columns=("name", "type", "size"), show="headings", selectmode="extended")
+        for col, text, width in (("name", "Name", 420), ("type", "Type", 90), ("size", "Size (bytes)", 140)):
+            tree.heading(col, text=text)
+            tree.column(col, width=width, anchor="w" if col == "name" else "e")
         tree.pack(fill="both", expand=True)
-        def refresh():
-            tree.delete(*tree.get_children())
-            for row in self._sd_rows:
-                tree.insert("", "end", values=row)
+
         bar = ttk.Frame(win)
         bar.pack(fill="x")
-        ttk.Button(bar, text="Refresh view", command=refresh).pack(side="left")
-        ttk.Button(bar, text="Request ls", command=lambda: self._do_send("ls /")).pack(side="left")
-        refresh()
+        ttk.Label(win, textvariable=status).pack(fill="x")
+
+        def parent(path):
+            return path.rsplit("/", 1)[0] or "/"
+
+        def selected():
+            return [tree.item(i, "values") for i in tree.selection()]
+
+        def show(path, entries):
+            cwd.set(path)
+            tree.delete(*tree.get_children())
+            self._sd_rows = []
+            for e in entries:
+                tree.insert("", "end", values=(e.name, "Folder" if e.is_dir else "File", "" if e.is_dir else e.size))
+                self._sd_rows.append((join(path, e.name), 0 if e.is_dir else e.size))
+            status.set(f"{path}: {len(entries)} item(s)")
+
+        def go(path):
+            path = "/" + path.strip().strip("/") if path.strip("/ ") else "/"
+            self._sd_job(lambda fs: fs.ls(path), lambda entries: show(path, entries), "SD list")
+
+        def open_item(_event=None):
+            rows = selected()
+            if len(rows) == 1 and rows[0][1] == "Folder":
+                go(join(cwd.get(), rows[0][0]))
+
+        def progress(verb):
+            def report(done, total):
+                pct = 100 if not total else done * 100 // total
+                self._ui_queue.put(lambda: status.set(f"{verb}: {done}/{total} bytes ({pct}%)"))
+            return report
+
+        def download():
+            files = [r for r in selected() if r[1] == "File"]
+            if not files:
+                messagebox.showinfo("Download", "Select one or more files (not folders).")
+                return
+            if len(files) == 1:
+                target = filedialog.asksaveasfilename(initialfile=files[0][0])
+                if not target:
+                    return
+                pairs = [(join(cwd.get(), files[0][0]), target)]
+            else:
+                folder = filedialog.askdirectory(title="Download to folder")
+                if not folder:
+                    return
+                pairs = [(join(cwd.get(), r[0]), os.path.join(folder, r[0])) for r in files]
+            def work(fs):
+                return sum(fs.download(remote, local, progress("Downloading " + remote)) for remote, local in pairs)
+            self._sd_job(work, lambda n: status.set(f"Downloaded {len(pairs)} file(s), {n} bytes."), "Download")
+
+        def upload():
+            sources = filedialog.askopenfilenames(title="Upload to " + cwd.get())
+            if not sources:
+                return
+            here = cwd.get()
+            def work(fs):
+                for src in sources:
+                    fs.upload(src, join(here, os.path.basename(src)), progress("Uploading " + os.path.basename(src)))
+                return fs.ls(here)
+            self._sd_job(work, lambda entries: show(here, entries), "Upload")
+
+        def new_folder():
+            from tkinter import simpledialog
+            name = simpledialog.askstring("New folder", "Folder name:", parent=win)
+            if name:
+                here = cwd.get()
+                self._sd_job(lambda fs: (fs.mkdir(join(here, name)), fs.ls(here))[1],
+                             lambda entries: show(here, entries), "New folder")
+
+        def move_or_copy(copy):
+            from tkinter import simpledialog
+            rows = selected()
+            if len(rows) != 1:
+                messagebox.showinfo("SD", "Select one item.")
+                return
+            src = join(cwd.get(), rows[0][0])
+            verb = "Copy" if copy else "Rename / move"
+            dst = simpledialog.askstring(verb, f"{verb} {src} to (full path or folder):",
+                                         initialvalue=src + (" copy" if copy else ""), parent=win)
+            if not dst or dst == src:
+                return
+            dst = dst if dst.startswith("/") else join(cwd.get(), dst)
+            here, recursive = cwd.get(), rows[0][1] == "Folder"
+            def work(fs):
+                fs.cp(src, dst, recursive=recursive) if copy else fs.mv(src, dst)
+                return fs.ls(here)
+            self._sd_job(work, lambda entries: show(here, entries), verb)
+
+        def delete():
+            rows = selected()
+            if not rows:
+                return
+            names = "\n".join(r[0] + ("/  (and everything in it)" if r[1] == "Folder" else "") for r in rows[:10])
+            if not messagebox.askyesno("Delete", f"Permanently delete from the SD card?\n\n{names}"):
+                return
+            here = cwd.get()
+            def work(fs):
+                for name, kind, _size in rows:
+                    fs.rm(join(here, name), recursive=kind == "Folder")
+                return fs.ls(here)
+            self._sd_job(work, lambda entries: show(here, entries), "Delete")
+
+        def disk_usage():
+            def done(totals):
+                total, used = totals
+                status.set(f"SD card: {used / 1048576:.1f} MB used of {total / 1048576:.1f} MB, "
+                           f"{(total - used) / 1048576:.1f} MB free")
+            self._sd_job(lambda fs: fs.df(), done, "Disk usage")
+
+        for text, command in (("Download", download), ("Upload", upload), ("New folder", new_folder),
+                              ("Rename / move", lambda: move_or_copy(False)),
+                              ("Copy", lambda: move_or_copy(True)), ("Delete", delete),
+                              ("Disk usage", disk_usage)):
+            ttk.Button(bar, text=text, command=command).pack(side="left")
+        tree.bind("<Double-1>", open_item)
+        tree.bind("<Delete>", lambda _e: delete())
 
     def export_inventory_report(self):
         import json
