@@ -50,6 +50,7 @@
   "marauder_hybrid.py",
   "marauder_npu.py",
   "marauder_pcap.py",
+  "marauder_premium.py",
   "marauder_secrets.py",
   "marauder_sessions.py",
   "marauder_workspace.py",

@@ -25,6 +25,8 @@
 
 ## AI, build and documentation
 
+- Added a Premium section to the sidebar. Heatmap mapping shows a locked page with an upgrade link unless the separately licensed Premium add-on is installed; the community edition contains no premium code or license checks.
+
 - Added Save diagnostic report using optional local Ollama/NPU engines. Report generation never dispatches RF commands and labels model analysis as unverified.
 - Retained all 95 catalog entries; eight unmatched official command names show compatibility warnings.
 - Added pinned Windows dependency sets, Python 3.12.10 build script, isolated development installation, and a Windows CI workflow pinned to action commits.
