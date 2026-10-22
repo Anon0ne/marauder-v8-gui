@@ -6,6 +6,7 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 
 from marauder_gui import MarauderGUI, PALETTE, BAUD, Marauder, __version__
+import marauder_premium
 
 REPO_URL = "https://github.com/Anon0ne/marauder-v8-gui"
 GUIDE_URL = REPO_URL + "/blob/main/docs/USER_GUIDE.md"
@@ -204,6 +205,10 @@ class WorkspaceGUI(MarauderGUI):
         nav('survey','Automated Survey',self.open_survey)
         nav('firmware','Firmware',self.open_firmware_dialog)
         nav('pcap','PCAP Inspector',self.open_pcap_dialog)
+        ttk.Separator(sidebar).pack(fill='x', padx=10, pady=18)
+        label('PREMIUM')
+        self._premium = marauder_premium.load_plugin()
+        nav('heatmap','Heatmap mapping' if self._premium else 'Heatmap mapping  🔒',self.open_heatmap)
         ttk.Label(sidebar, text='ESP32 Marauder V8\nUSB serial', style='Muted.TLabel').pack(side='bottom', anchor='w', padx=10, pady=8)
         main = tk.Frame(outer, bg=PALETTE['bg'], padx=22, pady=20)
         main.pack(side='left', fill='both', expand=True)
@@ -419,6 +424,27 @@ class WorkspaceGUI(MarauderGUI):
             open_external = ttk.Button(row,text='Open in Wireshark',state='disabled')
             open_external.pack(side='left',padx=12)
         self._open_tool('pcap',build)
+
+    def open_heatmap(self):
+        if self._premium is not None:
+            # The premium package checks its own license and shows activation if needed.
+            self._open_tool('heatmap',lambda: self._premium.open_feature('heatmap',self,self._new_tool_window()))
+        else:
+            self._open_tool('heatmap',lambda: self._build_premium_locked('heatmap'))
+
+    def _build_premium_locked(self,key):
+        title,summary = marauder_premium.PREMIUM_FEATURES[key]
+        page = self._new_tool_window()
+        ttk.Label(page,text=title,style='Title.TLabel').pack(anchor='w',padx=20,pady=(20,4))
+        ttk.Label(page,text='🔒  Premium feature',style='Card.TLabel',
+                  foreground=PALETTE['accent']).pack(anchor='w',padx=20)
+        ttk.Label(page,text=summary,style='CardMuted.TLabel',wraplength=620,
+                  justify='left').pack(anchor='w',padx=20,pady=(14,18))
+        ttk.Button(page,text='Upgrade to Premium',style='Accent.TButton',
+                   command=lambda: webbrowser.open(marauder_premium.UPGRADE_URL)).pack(anchor='w',padx=20)
+        ttk.Label(page,text='Already purchased? Install the Premium add-on next to the app, '
+                  'restart, and enter your license key.',style='CardMuted.TLabel',
+                  wraplength=620,justify='left').pack(anchor='w',padx=20,pady=(14,0))
 
     def _session_actions(self):
         def build():

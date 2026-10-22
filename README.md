@@ -70,6 +70,10 @@ Dark Workspace navigation, manual command catalog, Wi-Fi/BLE inventories, RF das
 
 Community resources: [Contributing](CONTRIBUTING.md), [Code of conduct](CODE_OF_CONDUCT.md), [Security](SECURITY.md), [Support](SUPPORT.md).
 
+## Premium
+
+The community edition stays free and open source under the MIT license. **Heatmap mapping** (live WiFi signal heatmaps over GPS while you wardrive, with GeoJSON / KML / HTML reports) is a Premium feature that ships as a separately licensed add-on. Without it, the sidebar shows the Heatmap page as locked with an upgrade link; no premium code or license checks are included in this repository.
+
 ## Online AI without a GPU
 
 Choose Cloud: OpenRouter Free or Cloud: Gemini and open Cloud settings. Bring your own API key and explicitly consent to sending prompts. Aggregate sharing is off by default; when enabled it sends counts, channels and RSSI ranges, excluding names, addresses, GPS and serial logs. Anything typed in prompts is sent to the provider. Keys are session-only unless Windows DPAPI storage is selected; Linux persistence is unsupported.
