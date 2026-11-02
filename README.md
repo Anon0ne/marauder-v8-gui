@@ -72,7 +72,7 @@ Community resources: [Contributing](CONTRIBUTING.md), [Code of conduct](CODE_OF_
 
 ## Premium
 
-The community edition stays free and open source under the MIT license. **Heatmap mapping** (live WiFi signal heatmaps over GPS while you wardrive, with GeoJSON / KML / HTML reports) is a Premium feature that ships as a separately licensed add-on. Without it, the sidebar shows the Heatmap page as locked with an upgrade link; no premium code or license checks are included in this repository.
+The community edition stays free and open source under the MIT license. **Heatmap mapping** (live WiFi signal heatmaps over GPS while you wardrive, with GeoJSON / KML / HTML reports) is a Premium feature that ships as a separately licensed add-on. Without it, the sidebar shows the Heatmap page as locked with an upgrade link; no premium code or license checks are included in this repository. We also ship with an upgraded Firmware named "Specter" which has additional features such as BadBLE, Specter Sessions ( record a toolchain, and replay it later), all well-known and documented BLE sniffs, scans and attacks, additional WiFi tools and also a Deauth Guardian for blue team features. It has many more features than stock V8 Marauder firmware.
 
 ## Online AI without a GPU
 
