@@ -18,7 +18,9 @@ reader first (the GUI pauses its reader thread around these calls).
 from __future__ import annotations
 
 import base64
+import datetime as _dt
 import os
+import re
 import time
 import zlib
 from dataclasses import dataclass
@@ -26,6 +28,8 @@ from typing import Callable, Optional
 
 LINE_TIMEOUT = 10.0
 Progress = Optional[Callable[[int, int], None]]
+
+_INT_RE = re.compile(r"^\d+$")
 
 
 class SDError(Exception):
@@ -37,6 +41,64 @@ class SDEntry:
     name: str
     is_dir: bool
     size: int = 0
+    mtime: str = ""
+
+
+def _format_mtime(raw: str) -> str:
+    """Render a listing's modified-time field for display.
+
+    The firmware's `ls` output may carry a per-entry timestamp as either a bare
+    epoch-seconds integer or a preformatted date string. A known device bug
+    leaves many files stamped at the unix epoch (1970-01-01); we hide that
+    sentinel rather than show a misleading date, and never fail on it. Fixing
+    the stamp itself is a firmware concern — here we only parse/display.
+    """
+    raw = raw.strip()
+    if not raw:
+        return ""
+    if _INT_RE.match(raw):
+        secs = int(raw)
+        if secs <= 0:
+            return ""
+        try:
+            parsed = _dt.datetime.fromtimestamp(secs, _dt.timezone.utc)
+        except (OverflowError, OSError, ValueError):
+            return ""
+        if parsed.year <= 1970:
+            return ""
+        return parsed.strftime("%Y-%m-%d %H:%M")
+    # Preformatted string straight from the device; drop the epoch sentinel.
+    if raw.startswith(("1970-01-01", "1969-12-31")):
+        return ""
+    return raw
+
+
+def parse_entry(line: str) -> "Optional[SDEntry]":
+    """Parse one `ls`/`tree` line into an SDEntry, or None if it isn't one.
+
+    Lines are tab-separated: a type marker ("D"/"F"), the name, then zero or
+    more trailing fields. Historically that was just the byte size for files;
+    newer firmware may also append a modified-time column. We take the first
+    bare-integer trailing field as the size and treat any other trailing text
+    as the timestamp, so an added (or reordered) date column never causes an
+    entry to be dropped — the old failure that left the browser empty.
+    """
+    fields = [f.strip() for f in line.split("\t")]
+    if len(fields) < 2 or fields[0] not in ("D", "F"):
+        return None
+    is_dir = fields[0] == "D"
+    name = fields[1]
+    if not name:
+        return None
+    size, size_set, extra = 0, False, []
+    for field in fields[2:]:
+        if not field:
+            continue
+        if not is_dir and not size_set and _INT_RE.match(field):
+            size, size_set = int(field), True
+        else:
+            extra.append(field)
+    return SDEntry(name, is_dir, size, _format_mtime(" ".join(extra)))
 
 
 def _quote(path: str) -> str:
@@ -102,11 +164,9 @@ class SDFiles:
         entries: list[SDEntry] = []
 
         def parse(line):
-            fields = line.split("\t")
-            if fields[0] == "D" and len(fields) >= 2:
-                entries.append(SDEntry(fields[1], True))
-            elif fields[0] == "F" and len(fields) >= 3 and fields[2].isdigit():
-                entries.append(SDEntry(fields[1], False, int(fields[2])))
+            entry = parse_entry(line)
+            if entry is not None:
+                entries.append(entry)
 
         self._run("ls", _quote(path), on_line=parse)
         entries.sort(key=lambda e: (not e.is_dir, e.name.lower()))
@@ -117,11 +177,9 @@ class SDFiles:
         entries: list[SDEntry] = []
 
         def parse(line):
-            fields = line.split("\t")
-            if fields[0] == "D" and len(fields) >= 2:
-                entries.append(SDEntry(fields[1], True))
-            elif fields[0] == "F" and len(fields) >= 3 and fields[2].isdigit():
-                entries.append(SDEntry(fields[1], False, int(fields[2])))
+            entry = parse_entry(line)
+            if entry is not None:
+                entries.append(entry)
 
         self._run("tree", _quote(path), on_line=parse)
         return entries

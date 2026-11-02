@@ -2752,10 +2752,12 @@ class MarauderGUI(tk.Tk):
         path_entry.bind("<Return>", lambda _e: go(cwd.get()))
         ttk.Button(nav, text="Refresh", command=lambda: go(cwd.get())).pack(side="left")
 
-        tree = ttk.Treeview(win, columns=("name", "type", "size"), show="headings", selectmode="extended")
-        for col, text, width in (("name", "Name", 420), ("type", "Type", 90), ("size", "Size (bytes)", 140)):
+        tree = ttk.Treeview(win, columns=("name", "type", "size", "modified"),
+                            show="headings", selectmode="extended")
+        for col, text, width in (("name", "Name", 360), ("type", "Type", 80),
+                                 ("size", "Size (bytes)", 120), ("modified", "Modified", 140)):
             tree.heading(col, text=text)
-            tree.column(col, width=width, anchor="w" if col == "name" else "e")
+            tree.column(col, width=width, anchor="w" if col in ("name", "modified") else "e")
         tree.pack(fill="both", expand=True)
 
         bar = ttk.Frame(win)
@@ -2773,7 +2775,8 @@ class MarauderGUI(tk.Tk):
             tree.delete(*tree.get_children())
             self._sd_rows = []
             for e in entries:
-                tree.insert("", "end", values=(e.name, "Folder" if e.is_dir else "File", "" if e.is_dir else e.size))
+                tree.insert("", "end", values=(e.name, "Folder" if e.is_dir else "File",
+                                                "" if e.is_dir else e.size, getattr(e, "mtime", "")))
                 self._sd_rows.append((join(path, e.name), 0 if e.is_dir else e.size))
             status.set(f"{path}: {len(entries)} item(s)")
 
@@ -2858,7 +2861,7 @@ class MarauderGUI(tk.Tk):
                 return
             here = cwd.get()
             def work(fs):
-                for name, kind, _size in rows:
+                for name, kind, *_rest in rows:
                     fs.rm(join(here, name), recursive=kind == "Folder")
                 return fs.ls(here)
             self._sd_job(work, lambda entries: show(here, entries), "Delete")
