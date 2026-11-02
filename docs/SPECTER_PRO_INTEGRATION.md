@@ -100,3 +100,6 @@ truncated manual path.
 The exact reported Coffee Shops template was stat'ed and downloaded with CRC
 verification (3,135 bytes). No portal was started during that hardware check;
 Start/Stop command dispatch is exercised with mocked radio commands.
+
+See [AP clone and Stop controls](AP_CLONE_AND_STOP.md) for current target refresh,
+template carryover and global job-stop behavior.

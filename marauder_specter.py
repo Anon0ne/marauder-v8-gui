@@ -10,6 +10,8 @@ BT_MODULES = ('tracker','phantom','beacon','spoofer','predator','sk','wp','karr'
 
 def starts_job(command):
     words=command.strip().split()
+    if words[:1] and words[0] in ('apclone','apdeauth'):return True
+    if words[:2] in (['probetwin','start'],['iotrecon','start'],['guardian','start']):return True
     return (len(words)>1 and words[0] in BT_MODULES and words[1] not in
             ('stop','list','dump','interval','lost','rotate','sig','disconnect')) or command.startswith(
                 ('probetwin start ','iotrecon start ','guardian start'))
@@ -99,6 +101,7 @@ def build_page(app,page):
     for title,cmd in [('Status','bt status'),('Help','bt help'),('Session','session status'),('Clock','clock status'),('Stop BLE','stopble')]:
         ttk.Button(bar,text=title,command=lambda c=cmd:app._do_send(c)).pack(side='left',padx=3)
     ttk.Button(bar,text='Sync UTC now',command=lambda:app._do_send('clock set '+str(int(time.time())))).pack(side='left',padx=3)
+    ttk.Button(bar,text='Stop active job',command=app.stop_running).pack(side='left',padx=3)
     ttk.Button(page,text='All Specter options → Command catalog',command=app._show_catalog).pack(anchor='w',padx=16,pady=6)
     ttk.Label(page,text='Device replies (all output also appears in the main console)').pack(anchor='w',padx=16)
     output=tk.Text(page,height=16,wrap='word',state='disabled',bg='#0c111b',fg='#e8eef7',insertbackground='#e8eef7',font=('Consolas',10),padx=10,pady=8)

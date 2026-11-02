@@ -63,5 +63,5 @@ contract have not been added; the existing selected template uses `/get`.
 - The user completed a manual login and confirmed it was theirs. The device reported
   one successful SD submission write/flush and the GUI displayed that count.
 - No real submission values were printed by the host validation process or committed.
-  Independent SD readback of that live record remains a follow-up after stopping
-  the exercise. Do not infer testing of all 549 templates from this one exercise.
+  Independent CRC-checked SD readback after stopping confirmed the original
+  record and both field-presence flags without displaying their values. Do not infer testing of all 549 templates from this one exercise.

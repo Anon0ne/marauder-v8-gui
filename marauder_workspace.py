@@ -133,6 +133,8 @@ class WorkspaceGUI(MarauderGUI):
         self.connect_btn = ttk.Button(header, text='Connect', style='Accent.TButton',
                                        command=self.toggle_connection)
         self.connect_btn.pack(side='right', padx=(12,0))
+        self.stop_all_btn = ttk.Button(header,text='Stop active job',command=self.stop_running)
+        self.stop_all_btn.pack(side='right',padx=(8,0))
         self.status = ttk.Label(header, text='● Disconnected', style='Muted.TLabel')
         self.status.pack(side='right', padx=12)
         settings = ttk.Menubutton(header, text='Connection ▾')
@@ -155,7 +157,6 @@ class WorkspaceGUI(MarauderGUI):
         self.baud_cb = ttk.Combobox(header, state='readonly', values=['9600','115200','230400','921600'])
         self.baud_cb.set(str(BAUD))
         self.ac_chk = ttk.Checkbutton(header, variable=self.autoconnect)
-        self.stop_all_btn = ttk.Button(header, text='Stop', command=self.stop_running)
         ttk.Separator(self).pack(fill='x')
 
     def _connection_settings(self):
@@ -560,6 +561,7 @@ class WorkspaceGUI(MarauderGUI):
                     messagebox.showerror('Connection failed',error)
                 return
             self.dev = device
+            self._clear_device_lists()
             self._connected_port = port
             self.reader_stop.clear()
             self.reader_thread = threading.Thread(target=self._reader_loop,daemon=True)
