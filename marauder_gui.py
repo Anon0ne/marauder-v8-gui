@@ -527,7 +527,7 @@ class MarauderGUI(tk.Tk):
         nb.add(tg, text="Targets")
         head = ttk.Frame(tg, style="Card.TFrame")
         head.pack(fill="x", padx=10, pady=(8, 2))
-        ttk.Label(head, text="Highlight rows (Ctrl/Shift-click), then Select to target them",
+        ttk.Label(head, text="Scan, then highlight AP rows for Deauth / Clone, or Select to target",
                   style="CardMuted.TLabel").pack(side="left")
         ttk.Button(head, text="Select highlighted →", style="Accent.TButton",
                    command=self._targets_select).pack(side="right")
@@ -536,7 +536,22 @@ class MarauderGUI(tk.Tk):
         kind = ttk.Combobox(head, textvariable=self.tgt_kind, values=["ap", "sta"],
                             state="readonly", width=6)
         kind.pack(side="right", padx=8)
-        kind.bind("<<ComboboxSelected>>", lambda e: self._targets_populate())
+        kind.bind("<<ComboboxSelected>>", lambda e: (self._targets_populate(),
+                                                     self._targets_sync_actions()))
+
+        # Scan / Stop + per-AP attack row. Deauth/Clone act on the highlighted
+        # AP row(s) via the firmware's apdeauth/apclone <index> commands.
+        act = ttk.Frame(tg, style="Card.TFrame")
+        act.pack(fill="x", padx=10, pady=(0, 2))
+        ttk.Button(act, text="⇄ Scan WiFi APs", command=self._targets_scan).pack(side="left")
+        ttk.Button(act, text="■ Stop", style="Stop.TButton",
+                   command=self.stop_running).pack(side="left", padx=8)
+        self.tgt_clone_btn = ttk.Button(act, text="Clone → Evil Twin",
+                                        command=lambda: self._targets_apaction("apclone"))
+        self.tgt_clone_btn.pack(side="right")
+        self.tgt_deauth_btn = ttk.Button(act, text="Deauth", style="Stop.TButton",
+                                         command=lambda: self._targets_apaction("apdeauth"))
+        self.tgt_deauth_btn.pack(side="right", padx=8)
 
         tw = ttk.Frame(tg, style="Card.TFrame")
         tw.pack(fill="both", expand=True, padx=10, pady=(0, 10))
@@ -551,6 +566,7 @@ class MarauderGUI(tk.Tk):
         self.tgt_tree.configure(yscrollcommand=sb.set)
         sb.pack(side="right", fill="y")
         self.tgt_tree.pack(side="left", fill="both", expand=True)
+        self._targets_sync_actions()
 
     def _targets_refresh(self):
         if not self.dev:
@@ -577,6 +593,45 @@ class MarauderGUI(tk.Tk):
         flag = "-s" if self.tgt_kind.get() == "sta" else "-a"
         idxs = ",".join(sorted(sel, key=lambda x: int(x) if str(x).isdigit() else 0))
         self._do_send(f"select {flag} {idxs}")
+
+    def _targets_scan(self):
+        """Trigger a WiFi AP recon so the table can be populated, then refresh."""
+        if not self.dev:
+            messagebox.showinfo("Not connected", "Connect to the Marauder first.")
+            return
+        self.tgt_kind.set("ap")
+        self._targets_sync_actions()
+        self._do_send("recon wifi")
+
+    def _targets_sync_actions(self):
+        """Deauth/Clone only apply to APs; disable them for the station list."""
+        state = "normal" if self.tgt_kind.get() == "ap" else "disabled"
+        for btn in (getattr(self, "tgt_deauth_btn", None), getattr(self, "tgt_clone_btn", None)):
+            if btn is not None:
+                btn.configure(state=state)
+
+    def _targets_apaction(self, verb):
+        """Send apdeauth/apclone for each highlighted AP row (by its list index).
+
+        Both firmware commands take a single 0-based AP index matching `list -a`
+        order; we fire one per selected row so a multi-select deauths each AP.
+        """
+        if self.tgt_kind.get() != "ap":
+            messagebox.showinfo("APs only", "Switch the list to 'ap' — Deauth/Clone act on access points.")
+            return
+        sel = self.tgt_tree.selection()
+        if not sel:
+            messagebox.showinfo("No AP", "Highlight one or more AP rows first.")
+            return
+        label = "Deauth" if verb == "apdeauth" else "Clone (Evil Twin)"
+        names = ", ".join(self._lists.get("ap", {}).get(i, {}).get("ssid", f"#{i}") for i in sel)
+        if not messagebox.askyesno(
+                f"{label}?",
+                f"{label} {len(sel)} access point(s): {names}\n\n"
+                "Authorized testing only — targets you own or have written permission to test."):
+            return
+        for idx in sorted(sel, key=lambda x: int(x) if str(x).isdigit() else 0):
+            self._do_send(f"{verb} -a {idx}")
 
     # ---- tree selection / builder --------------------------------------
     def _on_tree_select(self, _evt):
