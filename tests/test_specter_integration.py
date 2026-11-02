@@ -4,7 +4,7 @@ from pathlib import Path
 from unittest.mock import Mock,patch
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
 from marauder_specter import starts_job,stop_command
-from marauder_portals import offline_preview,device_template_command,portal_start_command,template_paths
+from marauder_portals import offline_preview,device_template_command,portal_start_command,template_paths,configure_portal
 from marauder_commands import CATALOG
 from marauder_sdfs import SDEntry
 from marauder_gui import command_runs
@@ -27,6 +27,16 @@ class SpecterTests(unittest.TestCase):
   html=offline_preview('<meta http-equiv="refresh" content="0; url=https://example.com"><base href="https://example.com"><script>x()</script><form action="https://example.com">')
   self.assertIn("form-action 'none'",html);self.assertIn("script-src 'none'",html)
   self.assertNotIn('http-equiv="refresh"',html);self.assertNotIn('<base ',html)
+ def test_configure_ack_required_before_start(self):
+  from marauder_sdfs import SDError
+  fs=Mock();fs.line_timeout=.01;fs._readline.side_effect=['#echo','@PORTAL:CONFIGURED']
+  configure_portal(fs,'/Rians/Coffee Shops/test.html','Specter Lab')
+  fs._start.assert_called_once_with('evilportal -c configure -s "Specter Lab" -w "Rians/Coffee Shops/test.html"')
+  fs._readline.side_effect=['@PORTAL:ERROR TEMPLATE_NOT_FOUND']
+  with self.assertRaises(SDError):configure_portal(fs,'/missing.html','Lab')
+  with self.assertRaises(ValueError):configure_portal(fs,'/test.html','x'*32)
+  with self.assertRaises(ValueError):configure_portal(fs,'/test.html','bad\nssid')
+
  def test_new_pages_available_to_pro_without_new_lock(self):
   from marauder_workspace import WorkspaceGUI
   plugin=types.SimpleNamespace(PLUGIN_API=1,open_feature=Mock())
@@ -60,12 +70,18 @@ class SpecterTests(unittest.TestCase):
    with patch('webbrowser.open') as browser:
     button('Preview').invoke();browser.assert_called_once()
    app.geometry('1080x720');app.update_idletasks()
-   self.assertLessEqual(button('Use SD template').winfo_y()+button('Use SD template').winfo_height(),button('Use SD template').master.winfo_height())
-   app.dev=Mock();button('Use SD template').invoke()
-   app.dev.send.assert_called_once_with('evilportal -c sethtml "Rians/Owned Template.html"')
+   self.assertLessEqual(button('Choose portal').winfo_y()+button('Choose portal').winfo_height(),button('Choose portal').master.winfo_height())
+   app.dev=Mock();button('Choose portal').invoke()
+   app.dev.send.assert_not_called()
    self.assertFalse(app.running)
-   page._start_portal()
-   app.dev.send.assert_called_with('evilportal -c start -w "Rians/Owned Template.html"')
+   with patch('marauder_portals.messagebox.askyesno',return_value=True), patch('marauder_portals.configure_portal') as configure:
+    page._start_portal()
+    configure.assert_called_once_with(fs,'/Rians/Owned Template.html','Specter Lab')
+   app.dev.send.assert_called_with('evilportal -c start')
+   app._portal_reply('@PORTAL:STATUS {"state":"ready","ssid":"Specter Lab","loot":"/portal_loot/test.jsonl","saved":0,"ip":"172.0.0.1"}\n')
+   self.assertEqual(app._portal_loot_path,'/portal_loot/test.jsonl')
+   self.assertIn('172.0.0.1',page._portal_status.get())
+   app._portal_reply('@PORTAL:SUBMISSION 1\n')
    self.assertTrue(app.running);app.stop_running();app.dev.send.reset_mock()
    app._sd_busy=True
    with patch('marauder_gui.messagebox.showinfo'):

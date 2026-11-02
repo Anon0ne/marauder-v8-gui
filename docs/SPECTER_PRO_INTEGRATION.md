@@ -1,3 +1,7 @@
+> The newer [guided Portal exercise](PORTAL_EXERCISE.md) replaces the split
+> template/AP setup described in the original validation notes below. It adds
+> explicit WiFi naming, acknowledged setup and independent SD submission logging.
+
 # Specter / Marauder V8 Pro integration
 
 Development branch: `specter/pro-integration` in `marauder-v8-gui`.

@@ -205,7 +205,7 @@ class WorkspaceGUI(MarauderGUI):
         nav('home','WiFi recon',self._show_workspace)
         nav('ble','BLE devices',self.open_ble_devices)
         nav('sd','SD files',self.open_sd_browser)
-        nav('portals','Portal templates',self.open_portal_templates)
+        nav('portals','Portal exercise',self.open_portal_templates)
         nav('specter','Specter firmware',self.open_specter)
         nav('sessions','Sessions',self._session_actions)
         ttk.Separator(sidebar).pack(fill='x', padx=10, pady=18)

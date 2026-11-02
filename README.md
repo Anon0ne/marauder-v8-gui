@@ -92,3 +92,7 @@ The `specter/pro-integration` branch adds SD-backed portal-template discovery an
 preview, plus 54 Specter command forms. Run `bash run-pro.sh --no-autoconnect`
 with the optional existing Pro add-on alongside the app. New host lockouts remain
 deferred; firmware gates still apply. See [integration and validation](docs/SPECTER_PRO_INTEGRATION.md).
+
+The [guided Portal exercise](docs/PORTAL_EXERCISE.md) uses existing SD templates,
+editable documented SSID references and device-confirmed startup. Submissions
+are saved locally to an independent SD log with a visible count and path.

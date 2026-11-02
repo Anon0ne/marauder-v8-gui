@@ -1168,6 +1168,8 @@ class MarauderGUI(tk.Tk):
 
     def _ingest(self, chunk):
         self._emit(chunk, None)
+        portal_reply=getattr(self,'_portal_reply',None)
+        if portal_reply is not None:portal_reply(chunk)
         output = getattr(self, '_specter_output', None)
         if output is not None and output.winfo_exists():
             output.configure(state='normal'); output.insert('end', chunk)
