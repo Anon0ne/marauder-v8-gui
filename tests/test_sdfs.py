@@ -206,5 +206,40 @@ class SDFilesTests(unittest.TestCase):
             self.fs.rm('/bad"name')
 
 
+class ParseEntryTest(unittest.TestCase):
+    """Listing lines must survive an added/reordered modified-time column."""
+
+    def _p(self, line):
+        from marauder_sdfs import parse_entry
+        return parse_entry(line)
+
+    def test_legacy_format_still_parses(self):
+        e = self._p("F\tscan.pcap\t42")
+        self.assertEqual((e.name, e.is_dir, e.size, e.mtime), ("scan.pcap", False, 42, ""))
+        d = self._p("D\tlogs")
+        self.assertEqual((d.name, d.is_dir), ("logs", True))
+
+    def test_size_found_regardless_of_date_position(self):
+        # Date appended after size, and date placed before size: both keep size=42.
+        for line in ("F\tscan.pcap\t42\t2026-10-30 14:05",
+                     "F\tscan.pcap\t2026-10-30 14:05\t42"):
+            self.assertEqual(self._p(line).size, 42, line)
+
+    def test_epoch_dates_are_hidden_not_shown(self):
+        # The known device bug stamps files at the unix epoch; don't display it.
+        self.assertEqual(self._p("F\ta\t10\t0").mtime, "")
+        self.assertEqual(self._p("F\ta\t10\t1970-01-01 00:00:00").mtime, "")
+
+    def test_real_epoch_integer_is_formatted(self):
+        self.assertEqual(self._p("F\ta\t10\t1762000000").mtime, "2025-11-01 12:26")
+
+    def test_formatted_date_passes_through(self):
+        self.assertEqual(self._p("F\ta\t10\t2026-10-30 14:05").mtime, "2026-10-30 14:05")
+
+    def test_non_listing_lines_ignored(self):
+        self.assertIsNone(self._p("@SD:OK ls 3"))
+        self.assertIsNone(self._p("some stray output"))
+
+
 if __name__ == "__main__":
     unittest.main()
