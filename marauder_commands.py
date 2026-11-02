@@ -118,6 +118,18 @@ CATALOG = [
               [dict(_CHAN),
                P("Source MAC", "-s", "text", placeholder="aa:bb:cc:dd:ee:ff"),
                P("Dest MAC", "-d", "text", placeholder="aa:bb:cc:dd:ee:ff")]),
+            C("AP Deauth (per-AP)", "apdeauth -a",
+              "Deauthenticates ONE scanned AP by its list index — broadcasts "
+              "deauth to that AP's clients without needing a prior 'select'. "
+              "Run Recon WiFi first, then double-click an AP row below (or type "
+              "its index) and Send." + _AUTH,
+              [P("AP index", None, "int", placeholder="e.g. 0", source="ap")]),
+            C("AP Clone (Evil Twin)", "apclone -a",
+              "Clones ONE scanned AP (by its list index) into an Evil Twin / "
+              "Evil Portal — same ESSID, for authorized phishing-resistance and "
+              "rogue-AP testing. Run Recon WiFi first, then double-click an AP "
+              "row below (or type its index) and Send." + _AUTH,
+              [P("AP index", None, "int", placeholder="e.g. 0", source="ap")]),
             C("Bad Msg", "attack -t badmsg",
               "Sends malformed management frames to selected target(s)." + _AUTH,
               [dict(_CHAN)]),
