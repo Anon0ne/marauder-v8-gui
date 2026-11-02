@@ -856,6 +856,14 @@ class MarauderGUI(tk.Tk):
             elif val:
                 if spec.get("flag"):
                     parts.append(spec["flag"])
+                if spec.get('quoted'):
+                    from marauder_sdfs import _quote
+                    if len(val)>1 and val.startswith('"') and val.endswith('"'):val=val[1:-1]
+                    try: val=_quote(val)
+                    except ValueError:
+                        self.preview_var.set('');return
+                    except Exception:
+                        self.preview_var.set('');return
                 parts.append(val)
         self.preview_var.set(" ".join(parts))
 
@@ -1062,6 +1070,9 @@ class MarauderGUI(tk.Tk):
             return
         if getattr(self, "_sd_busy", False):
             messagebox.showinfo("SD operation", "Wait for the current SD transfer to finish.")
+            return
+        if cmd.strip().startswith('evilportal ') and getattr(self,'running',False):
+            messagebox.showinfo('Portal setup','Stop the current operation before configuring or starting the portal.')
             return
         shown = redact(cmd)
         try:

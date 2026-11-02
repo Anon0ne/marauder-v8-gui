@@ -4,7 +4,7 @@ from pathlib import Path
 from unittest.mock import Mock,patch
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
 from marauder_specter import starts_job,stop_command
-from marauder_portals import offline_preview,device_template_command,template_paths
+from marauder_portals import offline_preview,device_template_command,portal_start_command,template_paths
 from marauder_commands import CATALOG
 from marauder_sdfs import SDEntry
 from marauder_gui import command_runs
@@ -22,6 +22,7 @@ class SpecterTests(unittest.TestCase):
  def test_templates_paths_preview_and_quoting(self):
   self.assertEqual(template_paths([SDEntry('/Rians/Owned.HTML',False),SDEntry('/folder',True)]),['/Rians/Owned.HTML'])
   self.assertEqual(device_template_command('/Rians/Owned Template.html'),'evilportal -c sethtml "Rians/Owned Template.html"')
+  self.assertEqual(portal_start_command('/Rians/Coffee Shops/test.html'),'evilportal -c start -w "Rians/Coffee Shops/test.html"')
   with self.assertRaises(ValueError):device_template_command('/../settings')
   html=offline_preview('<meta http-equiv="refresh" content="0; url=https://example.com"><base href="https://example.com"><script>x()</script><form action="https://example.com">')
   self.assertIn("form-action 'none'",html);self.assertIn("script-src 'none'",html)
@@ -63,10 +64,13 @@ class SpecterTests(unittest.TestCase):
    app.dev=Mock();button('Use SD template').invoke()
    app.dev.send.assert_called_once_with('evilportal -c sethtml "Rians/Owned Template.html"')
    self.assertFalse(app.running)
+   page._start_portal()
+   app.dev.send.assert_called_with('evilportal -c start -w "Rians/Owned Template.html"')
+   self.assertTrue(app.running);app.stop_running();app.dev.send.reset_mock()
    app._sd_busy=True
    with patch('marauder_gui.messagebox.showinfo'):
     app._do_send('bt status')
-   self.assertEqual(app.dev.send.call_count,1)
+   self.assertEqual(app.dev.send.call_count,0)
    app._sd_busy=False;app._last_running_base='tracker scan 3';app.running=True
    app.stop_running();app.dev.send.assert_called_with('stopble');self.assertFalse(app.running)
    app.dev=None

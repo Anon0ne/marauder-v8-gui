@@ -79,3 +79,20 @@ Newer-pack Airoha is not in the installed firmware and is not advertised here.
 Most active BLE assessment modules still need appropriate owned-target hardware
 validation. Their presence in the catalog is not a claim of interoperability or
 a confirmed vulnerability. Lockout/entitlement expansion remains deferred.
+
+## Portal setup and path fix
+
+The template page now keeps the chosen SD path visible, offers AP-list refresh,
+scanned-AP configuration and a scan shortcut, and has Start/Stop controls. Start
+checks that the chosen file exists and sends its complete quoted path. Selecting
+a new template does not itself start the portal. Stop the current job before
+changing setup or starting another portal.
+
+The catalog's optional template override is now quoted, so directories containing
+spaces remain one argument. Leave that override blank to use the firmware's
+current selection. This avoids overwriting a correct selection with a stale,
+truncated manual path.
+
+The exact reported Coffee Shops template was stat'ed and downloaded with CRC
+verification (3,135 bytes). No portal was started during that hardware check;
+Start/Stop command dispatch is exercised with mocked radio commands.
