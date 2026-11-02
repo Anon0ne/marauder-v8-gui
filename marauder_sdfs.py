@@ -149,6 +149,8 @@ class SDFiles:
             line = self._readline()
             if line == ok or line.startswith(ok + " "):
                 return line[len(ok):].strip()
+            if "Unknown command" in line or "Command not found" in line:
+                raise SDError("This firmware has no SD file-manager protocol; install the Specter SD-enabled build.")
             if line.startswith(err):
                 raise SDError(f"{sub}: {line[len(err):].strip() or 'failed'}")
             if on_line:
@@ -183,6 +185,9 @@ class SDFiles:
 
         self._run("tree", _quote(path), on_line=parse)
         return entries
+
+    def stat(self, path: str) -> str:
+        return self._run("stat", _quote(path))
 
     def df(self) -> tuple[int, int]:
         """(total bytes, used bytes)."""

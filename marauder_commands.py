@@ -350,3 +350,7 @@ CATALOG = [
         ]),
     ]),
 ]
+
+# Specter additions are available during Pro validation, without host lockout.
+from marauder_specter import catalog as _specter_catalog
+CATALOG.extend(_specter_catalog(P, C))

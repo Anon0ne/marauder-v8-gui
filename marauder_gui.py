@@ -21,6 +21,7 @@ against devices and networks you own or have explicit written permission to test
 
 from __future__ import annotations
 from app_paths import APP_DIR
+from marauder_specter import starts_job, stop_command
 
 import os
 import re
@@ -140,9 +141,11 @@ def redact(cmd: str) -> str:
 def command_runs(base: str) -> bool:
     """True if `base` starts a long-running operation that needs a Stop."""
     toks = base.strip().split()
+    if toks[:1] == ["evilportal"]:
+        return toks[1:3] == ["-c", "start"]
     if toks[:1] == ["recon"] and toks[1:2] in (["wifi"], ["ble"]):
         return True
-    return base.strip() in {"gpsdata", "gps -t"} or base.strip().startswith(RUNNING_PREFIXES)
+    return starts_job(base) or base.strip() in {"gpsdata", "gps -t"} or base.strip().startswith(RUNNING_PREFIXES)
 
 
 
@@ -1057,6 +1060,9 @@ class MarauderGUI(tk.Tk):
         if not self.dev:
             messagebox.showinfo("Not connected", "Connect to the Marauder first.")
             return
+        if getattr(self, "_sd_busy", False):
+            messagebox.showinfo("SD operation", "Wait for the current SD transfer to finish.")
+            return
         shown = redact(cmd)
         try:
             self.dev.send(cmd)
@@ -1068,7 +1074,7 @@ class MarauderGUI(tk.Tk):
             if isinstance(e, (serial.SerialException, OSError)):
                 self._disconnect()
             return
-        kind = event_kind or ("START" if command_runs(cmd) else "SEND")
+        kind = event_kind or ("STOP" if cmd.strip() in {"stopble", "stopscan", "recon stop", "guardian stop", "probetwin stop", "iotrecon stop"} else "START" if command_runs(cmd) else "SEND")
         if kind == "START":
             self.running = True
             self._last_running_base = cmd
@@ -1095,7 +1101,7 @@ class MarauderGUI(tk.Tk):
             self.running = False
             self._last_running_base = ""
             return
-        stopcmd = "recon stop" if self._last_running_base.strip().startswith("recon ") else "stopscan"
+        stopcmd = stop_command(self._last_running_base)
         self._do_send(stopcmd, event_kind="STOP")
         self.running = False
         self._last_running_base = ""
@@ -1151,6 +1157,12 @@ class MarauderGUI(tk.Tk):
 
     def _ingest(self, chunk):
         self._emit(chunk, None)
+        output = getattr(self, '_specter_output', None)
+        if output is not None and output.winfo_exists():
+            output.configure(state='normal'); output.insert('end', chunk)
+            if int(output.index('end-1c').split('.')[0]) > 2000:
+                output.delete('1.0','1000.0')
+            output.see('end'); output.configure(state='disabled')
         self._record_event("rx", chunk)
         # Line-buffer for parsing. Each line is isolated so one bad line can
         # never interrupt console rendering or freeze the receive loop.
@@ -2710,11 +2722,19 @@ class MarauderGUI(tk.Tk):
         if getattr(self, "_sd_busy", False):
             messagebox.showinfo(label, "Another SD operation is still running.")
             return
+        if getattr(self, "running", False):
+            messagebox.showinfo(label, "Stop the running scan before accessing SD files.")
+            return
         self._sd_busy = True
         device = self.dev
         self.reader_stop.set()
         if self.reader_thread:
             self.reader_thread.join(timeout=1.0)
+            if self.reader_thread.is_alive():
+                self._sd_busy = False
+                self.reader_stop.clear()
+                messagebox.showerror(label, "Serial reader is still busy; retry after it stops.")
+                return
 
         def finish(result, error):
             self._sd_busy = False

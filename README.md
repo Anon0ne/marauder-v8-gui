@@ -85,3 +85,10 @@ See [GPS and wardrive troubleshooting](docs/GPS_AND_WARDRIVE.md). GPS works on t
 ## Optional portal library
 
 [Rian's Evil Portals for Marauder](https://github.com/rianhanft/Rians_Evil_Portals_For_Marauder) is pinned as a Git submodule at `portals/rians`. Run `git submodule update --init --recursive -- portals/rians` from your source checkout. See [portal library setup](docs/PORTAL_LIBRARY.md) for recursive cloning, storage placement and packaging details.
+
+## Specter / Pro validation build
+
+The `specter/pro-integration` branch adds SD-backed portal-template discovery and
+preview, plus 54 Specter command forms. Run `bash run-pro.sh --no-autoconnect`
+with the optional existing Pro add-on alongside the app. New host lockouts remain
+deferred; firmware gates still apply. See [integration and validation](docs/SPECTER_PRO_INTEGRATION.md).

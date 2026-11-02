@@ -22,7 +22,8 @@ Inspect `git submodule status` to verify the pinned revision. To deliberately up
 
 ## Installed app and device files
 
-The standalone EXE folder is not a Git checkout. A copy of the pinned library can be placed at `<install folder>/portals/rians`; use the source checkout for submodule updates. Adding this library does not rebuild the EXE or add an automatic GUI template browser.
+The standalone EXE folder is not a Git checkout. A copy of the pinned library can be placed at `<install folder>/portals/rians`; use the source checkout for submodule updates. Adding this library does not rebuild the EXE. The Specter integration adds a
+[template browser](SPECTER_PRO_INTEGRATION.md) that also searches templates already on device SD.
 
 Upstream installation instructions require copying selected HTML files to the root of the Marauder storage, not into a subfolder. Keep the upstream license with redistributed copies. No device uploads or RF commands are performed by submodule initialization.
 

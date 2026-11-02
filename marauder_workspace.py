@@ -1,4 +1,5 @@
 """Marauder V8 Beta: persistent navigation and embedded tool pages."""
+import sys
 import queue
 import threading
 import webbrowser
@@ -81,7 +82,7 @@ class WorkspaceGUI(MarauderGUI):
         height = min(860, self.winfo_screenheight()-100)
         self.geometry(f'{width}x{height}')
         self.minsize(1080, 720)
-        self.title(f'Marauder V8 Workspace — {__version__}')
+        self.title(f"Marauder V8 {'Pro' if self._premium else 'Workspace'} — Specter — {__version__}")
 
     def _build_style(self):
         super()._build_style()
@@ -183,9 +184,17 @@ class WorkspaceGUI(MarauderGUI):
     def _build_body(self):
         outer = tk.Frame(self, bg=PALETTE['bg'])
         outer.pack(fill='both', expand=True)
-        sidebar = tk.Frame(outer, bg=PALETTE['panel'], width=210, padx=12, pady=20)
-        sidebar.pack(side='left', fill='y')
-        sidebar.pack_propagate(False)
+        side = tk.Frame(outer, bg=PALETTE['panel'], width=230)
+        side.pack(side='left',fill='y'); side.pack_propagate(False)
+        canvas = tk.Canvas(side,bg=PALETTE['panel'],highlightthickness=0,width=212)
+        scroll = ttk.Scrollbar(side,orient='vertical',command=canvas.yview)
+        scroll.pack(side='right',fill='y');canvas.pack(side='left',fill='both',expand=True)
+        canvas.configure(yscrollcommand=scroll.set)
+        sidebar = tk.Frame(canvas,bg=PALETTE['panel'],padx=12,pady=16)
+        window = canvas.create_window(0,0,window=sidebar,anchor='nw')
+        sidebar.bind('<Configure>',lambda _e:canvas.configure(scrollregion=canvas.bbox('all')))
+        canvas.bind('<Configure>',lambda e:canvas.itemconfigure(window,width=e.width))
+        self._sidebar_canvas = canvas
         def label(text):
             ttk.Label(sidebar, text=text, style='Muted.TLabel', font=('Segoe UI',9)).pack(anchor='w', padx=10, pady=(0,10))
         def nav(key, text, command):
@@ -196,6 +205,8 @@ class WorkspaceGUI(MarauderGUI):
         nav('home','WiFi recon',self._show_workspace)
         nav('ble','BLE devices',self.open_ble_devices)
         nav('sd','SD files',self.open_sd_browser)
+        nav('portals','Portal templates',self.open_portal_templates)
+        nav('specter','Specter firmware',self.open_specter)
         nav('sessions','Sessions',self._session_actions)
         ttk.Separator(sidebar).pack(fill='x', padx=10, pady=18)
         label('TOOLS')
@@ -381,6 +392,14 @@ class WorkspaceGUI(MarauderGUI):
     def open_ble_devices(self):
         self._open_tool('ble',super().open_ble_devices)
 
+    def open_portal_templates(self):
+        from marauder_portals import build_page
+        self._open_tool('portals',lambda:build_page(self,self._new_tool_window()))
+
+    def open_specter(self):
+        from marauder_specter import build_page
+        self._open_tool('specter',lambda:build_page(self,self._new_tool_window()))
+
     def open_sd_browser(self):
         self._open_tool('sd',super().open_sd_browser)
 
@@ -560,4 +579,6 @@ class WorkspaceGUI(MarauderGUI):
 
 
 if __name__ == '__main__':
-    WorkspaceGUI().mainloop()
+    app = WorkspaceGUI()
+    if '--no-autoconnect' in sys.argv: app.autoconnect.set(False)
+    app.mainloop()
