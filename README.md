@@ -72,7 +72,42 @@ Community resources: [Contributing](CONTRIBUTING.md), [Code of conduct](CODE_OF_
 
 ## Premium
 
-The community edition stays free and open source under the MIT license. **Heatmap mapping** (live WiFi signal heatmaps over GPS while you wardrive, with GeoJSON / KML / HTML reports) is a Premium feature that ships as a separately licensed add-on. Without it, the sidebar shows the Heatmap page as locked with an upgrade link; no premium code or license checks are included in this repository.
+The community edition remains free and open source under MIT. The existing
+**Heatmap** feature ships in a separately licensed Pro add-on. New Specter
+features are grouped here as the **Premium / Pro validation feature set**;
+expanded entitlement lockouts remain deferred until testing is complete. The
+current test branch exposes these controls without a new host license gate.
+Firmware Red/Blue Team and BT+ arm requirements still apply.
+
+| Premium feature area | New capabilities and current availability |
+| --- | --- |
+| **Heatmap** | GPS WiFi signal mapping and GeoJSON/KML/HTML reports; existing Pro add-on license checks apply. |
+| **Specter Sessions** | Firmware run start/end/status, session organization and output indexes; the GUI also retains its existing recording/replay tools. |
+| **Guardian and WiFi automation** | Deauth Guardian, exact-SSID Probe to Portal and scoped IoT Recon command forms, with status/stop routing. IoT Recon's post-ARP state check remains a known firmware issue. |
+| **AP actions** | Per-AP Deauth/Clone controls, fresh device AP/BSSID verification and selected-template carryover for clone setup. |
+| **Portal workflow** | Recursive existing SD-template discovery, filters, source viewing/offline preview, explicit template selection, editable setup, acknowledged startup and local submission-log metadata. |
+| **SD and time integration** | CRC-checked file transfers, nested paths with spaces, modified dates, firmware UTC sync and known-date correction commands. The community SD browser remains available. |
+| **BLE discovery and assessment catalog** | Tracker, Phantom, Beacon, Spoofer, Predator, SkeletonKey, WhisperPair, KARR and Skimmer forms; functionality and owned-target validation vary. |
+| **Controls and status** | Specter help/status/session/clock replies, explicit BT+ arming and a global Stop active job action with module-aware stop routing. |
+| **BadBLE keyboard / DuckyScript** | Companion Specter firmware now has touchscreen SD script selection, manual Run, progress and Stop/Back. Manual hello typing is user-confirmed on Android. Dedicated GUI forms are pending; use the raw console and SD browser with matching firmware. SD-script paired-host acceptance is still pending. |
+| **Firmware touchscreen improvements** | Live BLE result screens, retained snapshots, device/GATT inspection, Stop/Back and BLE-to-WiFi memory release. These run on the handheld, not in a new GUI inspector. |
+
+Run the validation build from `specter/pro-integration`:
+
+```sh
+bash run-pro.sh --no-autoconnect
+```
+
+Use a matching Specter firmware build. These forms send firmware commands;
+they do not add radio capabilities to stock firmware. Most active BLE tools
+still need target-device testing. Newer-pack Airoha, dedicated GARMR/auth-flood
+upgrades and future license lockouts are not completed additions here.
+
+[Integration and validation](docs/SPECTER_PRO_INTEGRATION.md) ·
+[Portal workflow](docs/PORTAL_EXERCISE.md) ·
+[AP actions and Stop](docs/AP_CLONE_AND_STOP.md) ·
+[Specter firmware](https://github.com/Anon0ne/Specter/tree/specter/ble-touchscreen) ·
+[BadBLE setup and commands](https://github.com/Anon0ne/Specter/blob/specter/ble-touchscreen/docs/BADBLE_KEYBOARD_TEST.md)
 
 ## Online AI without a GPU
 
@@ -85,14 +120,3 @@ See [GPS and wardrive troubleshooting](docs/GPS_AND_WARDRIVE.md). GPS works on t
 ## Optional portal library
 
 [Rian's Evil Portals for Marauder](https://github.com/rianhanft/Rians_Evil_Portals_For_Marauder) is pinned as a Git submodule at `portals/rians`. Run `git submodule update --init --recursive -- portals/rians` from your source checkout. See [portal library setup](docs/PORTAL_LIBRARY.md) for recursive cloning, storage placement and packaging details.
-
-## Specter / Pro validation build
-
-The `specter/pro-integration` branch adds SD-backed portal-template discovery and
-preview, plus 54 Specter command forms. Run `bash run-pro.sh --no-autoconnect`
-with the optional existing Pro add-on alongside the app. New host lockouts remain
-deferred; firmware gates still apply. See [integration and validation](docs/SPECTER_PRO_INTEGRATION.md).
-
-The [guided Portal exercise](docs/PORTAL_EXERCISE.md) uses existing SD templates,
-editable documented SSID references and device-confirmed startup. Submissions
-are saved locally to an independent SD log with a visible count and path.
