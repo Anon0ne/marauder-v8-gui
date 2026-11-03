@@ -20,12 +20,12 @@ jobs:
       - run: python -m pip check
       - run: python -m unittest discover -s tests -v
       - name: Build and install using the Windows source installer
-        shell: pwsh
+        shell: powershell
         run: |
           $root=Join-Path $env:RUNNER_TEMP 'Specter Windows QA\Source Install'
           ./Build-And-Install-Windows.ps1 -PythonExe (Get-Command python).Source -InstallDirectory (Join-Path $root 'App') -DesktopDirectory (Join-Path $root 'Desktop') -StartMenuDirectory (Join-Path $root 'Start Menu')
       - name: Verify source and portable installs and packaged GUI
-        shell: pwsh
+        shell: powershell
         run: ./tools/Test-WindowsInstall.ps1 -TestRoot (Join-Path $env:RUNNER_TEMP 'Specter Windows QA')
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:

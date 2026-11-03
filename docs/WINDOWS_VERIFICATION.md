@@ -1,7 +1,8 @@
 # Windows package verification
 
 The Windows workflow on `specter/pro-integration` uses Windows x64 and
-Python 3.12.10. Check its result and download the `MarauderV8-Windows-beta`
+Python 3.12.10. Installer checks run under Windows PowerShell 5.1, matching
+the `.cmd` launchers. Check its result and download the `MarauderV8-Windows-beta`
 artifact from [GitHub Actions](https://github.com/Anon0ne/marauder-v8-gui/actions/workflows/windows-build.yml).
 Extract the complete downloaded ZIP; run `INSTALL_WINDOWS.cmd`, or launch
 `MarauderV8-Control.exe` directly for portable use. Python is not needed for
