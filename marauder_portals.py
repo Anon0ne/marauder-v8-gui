@@ -3,7 +3,7 @@ from pathlib import Path
 import os,re,tempfile,webbrowser,time,json
 import tkinter as tk
 from tkinter import ttk,filedialog,messagebox
-from app_paths import APP_DIR
+from app_paths import APP_DIR, RESOURCE_DIR
 
 MAX_PREVIEW=512*1024
 
@@ -219,5 +219,5 @@ def build_page(app,page):
         ttk.Button(bar,text=label,command=fn).pack(side='left',padx=3)
     tree.bind('<Double-1>',lambda _event:use())
     # Present bundled local files immediately, without opening serial automatically.
-    local(APP_DIR/'portals')
+    local(APP_DIR/'portals' if (APP_DIR/'portals').is_dir() else RESOURCE_DIR/'portals')
     status.set('1. Find SD templates and choose a portal. 2. Enter or pick a WiFi name. 3. Review & Start.')

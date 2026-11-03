@@ -42,7 +42,15 @@ Common device commands: `recon wifi` / `recon ble` (discover), `list -a/-s/-c/-b
 
 ## Run and build
 
-Windows portable package: extract and run MarauderV8-Control.exe. Source: install requirements.txt and launch marauder_workspace.py. BUILD_AND_INSTALL.cmd builds and installs the Marauder V8 Control shortcut. For the repeatable tested build, use Python 3.12.10 x64:
+Windows test packages include `INSTALL_WINDOWS.cmd`: extract the entire package
+and run it to install the EXE and Desktop/Start Menu shortcuts without Python.
+For portable use, launch `MarauderV8-Control.exe` directly. The public package
+includes shared Specter controls; it does not bundle the private Pro add-on.
+See [Windows instructions](WINDOWS_INSTALL.txt) and
+[verification coverage](docs/WINDOWS_VERIFICATION.md).
+
+Source: install requirements.txt and launch marauder_workspace.py.
+`BUILD_AND_INSTALL.cmd` builds from source and uses the same Windows installer. For the repeatable tested build, use Python 3.12.10 x64:
 
 ```powershell
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\BUILD_REPRODUCIBLE.ps1

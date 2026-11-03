@@ -581,6 +581,14 @@ class WorkspaceGUI(MarauderGUI):
 
 
 if __name__ == '__main__':
+    if '--smoke-test' in sys.argv:
+        import argparse
+        from marauder_windows_smoke import run
+        parser = argparse.ArgumentParser()
+        parser.add_argument('--smoke-test', required=True)
+        parser.add_argument('--no-autoconnect', action='store_true')
+        args = parser.parse_args()
+        sys.exit(run(WorkspaceGUI, args.smoke_test))
     app = WorkspaceGUI()
     if '--no-autoconnect' in sys.argv: app.autoconnect.set(False)
     app.mainloop()
