@@ -18,7 +18,7 @@ class WindowsPackagingTests(unittest.TestCase):
             with patch.object(sys, 'frozen', True, create=True), patch.object(sys, '_MEIPASS', str(bundle), create=True), patch.object(sys, 'executable', str(installed)):
                 paths = runpy.run_path(str(ROOT / 'app_paths.py'))
             self.assertEqual(paths['RESOURCE_DIR'], bundle)
-            self.assertEqual(paths['APP_DIR'], installed.parent)
+            self.assertEqual(paths['APP_DIR'], installed.resolve().parent)
 
     def test_packaged_smoke_fails_without_bundled_assets(self):
         from marauder_windows_smoke import run
