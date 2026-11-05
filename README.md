@@ -1,4 +1,5 @@
 # Marauder V8 Control — 0.4.2b Beta
+# Note: If you want full features, and to use our new additions you must flash Specter firmware to your Marauder V8. We have only tested the V8 nothing else.
 
 0.4.2b Beta improves reliability and GPS/wardrive controls. The major Workspace GUI remains experimental; community feedback will determine whether we retain it. Read [development changes](CHANGELOG-development.md), [audit and plan](docs/AUDIT_AND_PLAN.md), [firmware comparison](docs/COMMAND_COMPARISON.md), and [validation](docs/VALIDATION.md).
 
