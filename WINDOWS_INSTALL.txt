@@ -1,16 +1,44 @@
-Marauder V8 Control 0.4.2b — Windows
+Marauder V8 Control / Specter validation build - Windows x64
 
-PORTABLE EXE
-Extract the Windows ZIP and launch MarauderV8-Control.exe. No Python required.
+PREBUILT PACKAGE (NO PYTHON REQUIRED)
+Extract Specter-Windows-Test.zip into a folder, then double-click
+INSTALL_WINDOWS.cmd. It copies MarauderV8-Control.exe into your user Programs
+folder and creates Desktop and Start Menu shortcuts. Administrator rights are
+not normally needed. It does not launch the app or connect to a device.
 
-AUTOMATED SOURCE BUILD
-Double-click BUILD_AND_INSTALL.cmd. It checks for Python 3.10-3.13 first, installs Python 3.12 automatically if missing (winget or verified official installer), builds the executable, and creates Desktop and Start Menu shortcuts. Internet access is required for Python and dependencies. No administrator privileges are normally required.
+For portable use, run MarauderV8-Control.exe directly instead.
+SHA256SUMS.txt contains the executable checksum. To compare on Windows:
+  powershell -NoProfile -Command "Get-FileHash -Algorithm SHA256 .\MarauderV8-Control.exe"
 
-The installer automatically checks and installs missing or outdated Python packages (pyserial, esptool, PyInstaller and their dependencies), validates package compatibility, then builds the EXE. Internet access required for missing packages.
+This public test EXE includes the Specter command catalog, SD browser and
+other shared GUI pages. The private marauder_pro add-on is NOT bundled;
+existing licensed Heatmap functionality remains a separate installation.
+It does not include the large optional Rian template library; SD templates
+remain on the device. The small bundled default asset is included.
 
-MANUAL SOURCE INSTALL
+BUILD FROM SOURCE
+Use a full source checkout and double-click BUILD_AND_INSTALL.cmd. This
+checks Python 3.10-3.13, installs Python 3.12 if missing (winget or signed
+Python Software Foundation installer), creates a build environment, installs
+pinned dependencies, builds the EXE and runs the same per-user installer.
+Internet access is required for dependencies. Python 3.12.10 x64 is the
+Windows CI verification target. BUILD_REPRODUCIBLE.ps1 is the stricter
+repeatable build entry point; it requires that exact Python version.
+
+MANUAL SOURCE RUN
 py -3.12 -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r requirements.txt
-.\.venv\Scripts\python.exe marauder_workspace.py
+.\.venv\Scripts\python.exe marauder_workspace.py --no-autoconnect
 
-Optional NPU setup: SETUP_NPU.cmd, then RUN_NPU.cmd. See NPU_SETUP.md for experimental limitations.
+FIRST DEVICE TEST
+Open the app, choose the device's COM port and baud 115200, then Connect.
+Use Help/Status and SD Refresh before starting a radio operation. Actual
+USB/COM and target-device behavior must be tested on your Windows computer.
+
+VALIDATION
+Windows CI verifies dependencies, regression tests, source build/install,
+installed file checksums, Desktop/Start Menu shortcut targets, and actual
+frozen EXE startup/opening of eleven GUI pages without a radio connection.
+It repeats the install/launch checks from the prebuilt package.
+Automatic Python installation on a clean machine and physical USB drivers
+are separate acceptance checks; they are not simulated by those tests.

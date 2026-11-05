@@ -19,7 +19,7 @@ Param kinds:
 
 
 def P(label, flag=None, kind="text", choices=None, placeholder="", default="",
-      help="", source="", multi=False):
+      help="", source="", multi=False, quoted=False):
     # source: "ap"/"sta"/"ssid" shows a double-click picker from that scanned list;
     #         "auto" follows this command's -a/-s/-c dropdown. multi=True appends
     #         picked indices (comma-separated) instead of replacing.
@@ -33,6 +33,7 @@ def P(label, flag=None, kind="text", choices=None, placeholder="", default="",
         "help": help,
         "source": source,
         "multi": multi,
+        "quoted": quoted,
     }
 
 
@@ -145,11 +146,11 @@ CATALOG = [
             C("Evil Portal — Start", "evilportal -c start",
               "Starts a captive-portal AP serving an HTML page (credential "
               "harvesting demo). Strictly authorized testing / labs only." + _AUTH,
-              [P("HTML file", "-w", "text", placeholder="portal.html",
-                 help="HTML page on the SD card to serve.")]),
+              [P("Optional template override", "-w", "text", placeholder="Leave blank to use the selected template",
+                 help="Only fill this to override the selected SD template. Paths are quoted.", quoted=True)]),
             C("Evil Portal — Set HTML", "evilportal -c sethtml",
               "Selects the HTML page the Evil Portal serves." + _AUTH,
-              [P("HTML file", None, "text", placeholder="portal.html")]),
+              [P("HTML file", None, "text", placeholder="portal.html", quoted=True)]),
             C("Karma", "karma -p",
               "Responds to probe requests to lure clients (Karma). Pick the probe "
               "index from 'List'." + _AUTH,
@@ -350,3 +351,7 @@ CATALOG = [
         ]),
     ]),
 ]
+
+# Specter additions are available during Pro validation, without host lockout.
+from marauder_specter import catalog as _specter_catalog
+CATALOG.extend(_specter_catalog(P, C))

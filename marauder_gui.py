@@ -21,6 +21,7 @@ against devices and networks you own or have explicit written permission to test
 
 from __future__ import annotations
 from app_paths import APP_DIR
+from marauder_specter import starts_job, stop_command
 
 import os
 import re
@@ -140,9 +141,11 @@ def redact(cmd: str) -> str:
 def command_runs(base: str) -> bool:
     """True if `base` starts a long-running operation that needs a Stop."""
     toks = base.strip().split()
+    if toks[:1] == ["evilportal"]:
+        return toks[1:3] == ["-c", "start"]
     if toks[:1] == ["recon"] and toks[1:2] in (["wifi"], ["ble"]):
         return True
-    return base.strip() in {"gpsdata", "gps -t"} or base.strip().startswith(RUNNING_PREFIXES)
+    return starts_job(base) or base.strip() in {"gpsdata", "gps -t"} or base.strip().startswith(RUNNING_PREFIXES)
 
 
 
@@ -568,11 +571,50 @@ class MarauderGUI(tk.Tk):
         self.tgt_tree.pack(side="left", fill="both", expand=True)
         self._targets_sync_actions()
 
+    def _clear_device_lists(self):
+        for kind in getattr(self,'_lists',{}): self._lists[kind] = {}
+        self._parse_mode = None
+        if getattr(self,'tgt_tree',None) is not None:self._targets_populate()
+        if hasattr(self,'_active_pickers'):self._refresh_pickers()
+
+    def _clone_from_device(self,index,expected_bssid=''):
+        from marauder_ap_targets import read_ap_snapshot,resolve_clone
+        from marauder_sdfs import _quote
+        template=getattr(self,'_portal_selected_path','')
+        def snapshot(fs):
+            rows=read_ap_snapshot(fs)
+            if template:
+                info=fs.stat(template)
+                if not info.startswith('F '):raise ValueError('Selected portal template is not a file')
+                if int(info.rsplit(' ',2)[1])>=30000:raise ValueError('Selected portal template is too large')
+            return rows
+        def checked(rows):
+            self._lists['ap']=rows;self._targets_populate();self._refresh_pickers()
+            try:target=resolve_clone(rows,index,expected_bssid)
+            except ValueError as exc:messagebox.showinfo('AP clone',str(exc));return
+            if not template:
+                self._portal_ssid=target.get('ssid','')
+                if not hasattr(self,'open_portal_templates'):
+                    messagebox.showinfo('Choose a portal','Use the Workspace portal exercise page to choose an SD template first.');return
+                self.open_portal_templates()
+                self._pages['portals']._portal_ssid.set(self._portal_ssid)
+                messagebox.showinfo('Choose a portal','WiFi name selected. Choose an SD portal, then Review & Start.');return
+            if not messagebox.askyesno('Clone this AP?',
+                'WiFi: '+target.get('ssid','')+'\nBSSID: '+target['bssid']+
+                '\nPortal: '+template+'\n\nStart this portal network?'):return
+            self._do_send('apclone -a '+target['index']+' -b '+target['bssid']+' -w '+_quote(template.lstrip('/')))
+        self._sd_job(snapshot,checked,'Refresh AP clone target')
+
     def _targets_refresh(self):
         if not self.dev:
             messagebox.showinfo("Not connected", "Connect to the Marauder first.")
             return
-        self._do_send("list -s" if self.tgt_kind.get() == "sta" else "list -a")
+        if self.tgt_kind.get() == 'ap':
+            from marauder_ap_targets import read_ap_snapshot
+            def refreshed(rows):
+                self._lists['ap']=rows;self._targets_populate();self._refresh_pickers()
+            self._sd_job(read_ap_snapshot,refreshed,'Refresh device APs')
+        else:self._do_send('list -s')
 
     def _targets_populate(self):
         if getattr(self, "tgt_tree", None) is None:
@@ -613,8 +655,8 @@ class MarauderGUI(tk.Tk):
     def _targets_apaction(self, verb):
         """Send apdeauth/apclone for each highlighted AP row (by its list index).
 
-        Both firmware commands take a single 0-based AP index matching `list -a`
-        order; we fire one per selected row so a multi-select deauths each AP.
+        Clone resolves one selected AP against the current device BSSID snapshot
+        and carries the selected portal template. Multi-select is for Deauth only.
         """
         if self.tgt_kind.get() != "ap":
             messagebox.showinfo("APs only", "Switch the list to 'ap' — Deauth/Clone act on access points.")
@@ -623,6 +665,10 @@ class MarauderGUI(tk.Tk):
         if not sel:
             messagebox.showinfo("No AP", "Highlight one or more AP rows first.")
             return
+        if verb == 'apclone':
+            if len(sel)!=1:
+                messagebox.showinfo('AP clone','Choose one AP. Only one portal network can run at a time.');return
+            self._do_send('apclone -a '+sel[0]);return
         label = "Deauth" if verb == "apdeauth" else "Clone (Evil Twin)"
         names = ", ".join(self._lists.get("ap", {}).get(i, {}).get("ssid", f"#{i}") for i in sel)
         if not messagebox.askyesno(
@@ -853,6 +899,14 @@ class MarauderGUI(tk.Tk):
             elif val:
                 if spec.get("flag"):
                     parts.append(spec["flag"])
+                if spec.get('quoted'):
+                    from marauder_sdfs import _quote
+                    if len(val)>1 and val.startswith('"') and val.endswith('"'):val=val[1:-1]
+                    try: val=_quote(val)
+                    except ValueError:
+                        self.preview_var.set('');return
+                    except Exception:
+                        self.preview_var.set('');return
                 parts.append(val)
         self.preview_var.set(" ".join(parts))
 
@@ -963,6 +1017,7 @@ class MarauderGUI(tk.Tk):
                 messagebox.showerror("Connection failed", detail)
             return
         self._connected_port = port
+        self._clear_device_lists()
         self.reader_stop.clear()
         self.reader_thread = threading.Thread(target=self._reader_loop, daemon=True)
         self.reader_thread.start()
@@ -976,6 +1031,7 @@ class MarauderGUI(tk.Tk):
         self._cancel_surveys()
         self._line_buf = ""
         self._parse_mode = None
+        self._clear_device_lists()
         self.reader_stop.set()
         if self.reader_thread:
             self.reader_thread.join(timeout=1.0)
@@ -1057,6 +1113,20 @@ class MarauderGUI(tk.Tk):
         if not self.dev:
             messagebox.showinfo("Not connected", "Connect to the Marauder first.")
             return
+        if getattr(self, "_sd_busy", False):
+            messagebox.showinfo("SD operation", "Wait for the current SD transfer to finish.")
+            return
+        if cmd.strip().startswith('evilportal ') and getattr(self,'running',False):
+            messagebox.showinfo('Portal setup','Stop the current operation before configuring or starting the portal.')
+            return
+        if cmd.strip().startswith('apclone ') and '-b' not in cmd.split():
+            if getattr(self,'running',False):
+                messagebox.showinfo('AP clone','Stop the current operation before cloning an AP.');return
+            match=re.search(r'(?:^|\s)-a\s+(\d+)(?:\s|$)',cmd)
+            if not match:messagebox.showinfo('AP clone','Choose a valid AP index.');return
+            index=match.group(1)
+            expected=self._lists.get('ap',{}).get(index,{}).get('bssid','')
+            self._clone_from_device(index,expected);return
         shown = redact(cmd)
         try:
             self.dev.send(cmd)
@@ -1068,7 +1138,7 @@ class MarauderGUI(tk.Tk):
             if isinstance(e, (serial.SerialException, OSError)):
                 self._disconnect()
             return
-        kind = event_kind or ("START" if command_runs(cmd) else "SEND")
+        kind = event_kind or ("STOP" if cmd.strip() in {"stopble", "stopscan", "recon stop", "guardian stop", "probetwin stop", "iotrecon stop"} else "START" if command_runs(cmd) else "SEND")
         if kind == "START":
             self.running = True
             self._last_running_base = cmd
@@ -1095,7 +1165,11 @@ class MarauderGUI(tk.Tk):
             self.running = False
             self._last_running_base = ""
             return
-        stopcmd = "recon stop" if self._last_running_base.strip().startswith("recon ") else "stopscan"
+        if not self._last_running_base.strip():
+            self._do_send('stopble',event_kind='STOP')
+            self._do_send('stopscan',event_kind='STOP')
+            return
+        stopcmd = stop_command(self._last_running_base)
         self._do_send(stopcmd, event_kind="STOP")
         self.running = False
         self._last_running_base = ""
@@ -1151,6 +1225,14 @@ class MarauderGUI(tk.Tk):
 
     def _ingest(self, chunk):
         self._emit(chunk, None)
+        portal_reply=getattr(self,'_portal_reply',None)
+        if portal_reply is not None:portal_reply(chunk)
+        output = getattr(self, '_specter_output', None)
+        if output is not None and output.winfo_exists():
+            output.configure(state='normal'); output.insert('end', chunk)
+            if int(output.index('end-1c').split('.')[0]) > 2000:
+                output.delete('1.0','1000.0')
+            output.see('end'); output.configure(state='disabled')
         self._record_event("rx", chunk)
         # Line-buffer for parsing. Each line is isolated so one bad line can
         # never interrupt console rendering or freeze the receive loop.
@@ -1194,6 +1276,8 @@ class MarauderGUI(tk.Tk):
         while raw[:1] == ">":
             raw = raw[1:].lstrip()
         low = raw.lower()
+        if low.startswith('esp-rom:') or low in ('#recon wifi','#scanall'):
+            self._clear_device_lists();return True
         relation = re.match(r'^\d+:\s*(ap|sta):\s*([0-9a-f:]{17})\s*->\s*(ap|sta):\s*([0-9a-f:]{17})', low)
         if relation and relation.group(1) != relation.group(3):
             station = relation.group(2) if relation.group(1) == 'sta' else relation.group(4)
@@ -2708,13 +2792,21 @@ class MarauderGUI(tk.Tk):
             messagebox.showinfo("Not connected", "Connect to the Marauder first.")
             return
         if getattr(self, "_sd_busy", False):
-            messagebox.showinfo(label, "Another SD operation is still running.")
+            messagebox.showinfo(label, "Another device operation is still running.")
+            return
+        if getattr(self, "running", False):
+            messagebox.showinfo(label, "Stop the current job before continuing.")
             return
         self._sd_busy = True
         device = self.dev
         self.reader_stop.set()
         if self.reader_thread:
             self.reader_thread.join(timeout=1.0)
+            if self.reader_thread.is_alive():
+                self._sd_busy = False
+                self.reader_stop.clear()
+                messagebox.showerror(label, "Serial reader is still busy; retry after it stops.")
+                return
 
         def finish(result, error):
             self._sd_busy = False

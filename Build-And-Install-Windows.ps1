@@ -1,4 +1,4 @@
-param([switch]$BuildOnly, [switch]$EnableNPU)
+param([switch]$BuildOnly, [switch]$EnableNPU, [string]$PythonExe, [string]$InstallDirectory, [string]$DesktopDirectory, [string]$StartMenuDirectory)
 $ErrorActionPreference = 'Stop'
 Set-Location $PSScriptRoot
 function Find-Python {
@@ -56,7 +56,13 @@ function Install-Python {
   if (!$python) { throw 'Python installed but could not be located. Reopen terminal and rerun the installer.' }
   return $python
 }
-$python=Find-Python
+$python=$null
+if ($PythonExe) {
+  $resolved=(Resolve-Path -LiteralPath $PythonExe).Path
+  & $resolved -c 'import sys; assert (3,10) <= sys.version_info[:2] < (3,14)'
+  if ($LASTEXITCODE -ne 0) { throw 'PythonExe must be Python 3.10-3.13.' }
+  $python=[pscustomobject]@{Exe=$resolved;Args=@()}
+} else { $python=Find-Python }
 if (!$python) { $python=Install-Python }
 if (!$python.Exe -or !(Test-Path -LiteralPath $python.Exe -PathType Leaf)) { throw 'Python detection did not return a valid executable.' }
 Write-Host "Using Python: $($python.Exe)" -ForegroundColor Green
@@ -86,19 +92,8 @@ $exe=Join-Path $PSScriptRoot 'dist\MarauderV8-Control.exe'
 if (!(Test-Path $exe)) { throw 'Build did not produce executable' }
 Write-Host "Built: $exe"
 if ($BuildOnly) { exit 0 }
-$install=Join-Path $env:LOCALAPPDATA 'Programs\MarauderV8-Control'
-New-Item -ItemType Directory -Path $install -Force | Out-Null
-Copy-Item $exe (Join-Path $install 'MarauderV8-Control.exe') -Force
-$wsh=New-Object -ComObject WScript.Shell
-$desktop=[Environment]::GetFolderPath('Desktop')
-$start=Join-Path $env:APPDATA 'Microsoft\Windows\Start Menu\Programs'
-foreach ($dir in @($desktop,$start)) {
-  $lnk=$wsh.CreateShortcut((Join-Path $dir 'Marauder V8 Control.lnk'))
-  $lnk.TargetPath=Join-Path $install 'MarauderV8-Control.exe'
-  $lnk.WorkingDirectory=$install
-  $lnk.Description='Marauder V8 Control'
-  $lnk.IconLocation=Join-Path $install 'MarauderV8-Control.exe'
-  $lnk.Save()
-}
-Write-Host "Installed to $install"
-Write-Host 'Desktop and Start Menu shortcuts created.'
+$installArgs=@{ExecutablePath=$exe}
+if ($InstallDirectory) { $installArgs.InstallDirectory=$InstallDirectory }
+if ($DesktopDirectory) { $installArgs.DesktopDirectory=$DesktopDirectory }
+if ($StartMenuDirectory) { $installArgs.StartMenuDirectory=$StartMenuDirectory }
+& (Join-Path $PSScriptRoot 'Install-Windows.ps1') @installArgs
