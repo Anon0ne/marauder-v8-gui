@@ -56,7 +56,7 @@ Use a clearly labeled static page without input fields. For every cycle:
    and largest contiguous block where diagnostics are available. Test a second
    client to distinguish cached client leases from server state.
 5. Record host OS, USB driver, both source commits and exact reproduction steps.
-   Stop/restart failures remain blocking even if reboot temporarily helps.
+   Stop/restart failures remain a known beta limitation even if reboot temporarily helps.
 
 The previous HTTP stack-size fix has user-confirmed page delivery, but does not
 establish that second-start client DHCP works. No DHCP repair is claimed here.
