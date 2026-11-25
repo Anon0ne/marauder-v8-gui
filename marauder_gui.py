@@ -3072,7 +3072,9 @@ class MarauderGUI(tk.Tk):
             # Otherwise a later GUI instance can receive stale Tcl callbacks.
             try:
                 for timer in self.tk.call('after', 'info'):
-                    self.after_cancel(timer)
+                    # Keep callback command ownership with the child widget;
+                    # its destroy() will remove that command exactly once.
+                    self.tk.call('after', 'cancel', timer)
             except tk.TclError:
                 pass
             self.destroy()
