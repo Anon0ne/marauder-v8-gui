@@ -16,6 +16,8 @@ def run(app_factory, report_path):
         asset = RESOURCE_DIR / 'portals/default/index.html'
         if not asset.is_file():
             raise RuntimeError('Bundled default template is missing')
+        if result['frozen'] and not (RESOURCE_DIR / 'third_party_licenses/inventory.json').is_file():
+            raise RuntimeError('Bundled dependency notice inventory is missing')
         result['bundled_default_template'] = True
         result['esptool_version'] = esptool.__version__
         result['serial_version'] = serial.__version__

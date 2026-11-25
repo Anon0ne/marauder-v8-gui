@@ -37,7 +37,7 @@ import datetime as _dt
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 
-__version__ = "0.4.3"
+__version__ = "0.4.4-beta.1"
 AUTHOR = "Justin Funderburk"
 CONTACT = "justin@bizhostnc.com"
 

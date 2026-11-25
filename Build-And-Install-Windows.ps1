@@ -86,6 +86,9 @@ if ($EnableNPU) {
 & $py -c 'import serial, esptool, PyInstaller'
 if ($LASTEXITCODE -ne 0) { throw 'Required module import verification failed.' }
 Write-Host 'Verified: pyserial, esptool, PyInstaller'
+& $py tools/collect_public_licenses.py
+if ($LASTEXITCODE -ne 0) { throw 'Public dependency-notice collection failed' }
+$env:SPECTER_INCLUDE_NPU = if ($EnableNPU) { '1' } else { '0' }
 & $py -m PyInstaller --noconfirm --clean MarauderV8-Control.spec
 if ($LASTEXITCODE -ne 0) { throw 'Windows build failed' }
 $exe=Join-Path $PSScriptRoot 'dist\MarauderV8-Control.exe'

@@ -1,11 +1,16 @@
-# Marauder V8 Control — 0.4.2b Beta
-# Note: If you want full features, and to use our new additions you must flash Specter firmware to your Marauder V8. We have only tested the V8 nothing else.
+# Specter V8 companion GUI — public beta
 
-0.4.2b Beta improves reliability and GPS/wardrive controls. The major Workspace GUI remains experimental; community feedback will determine whether we retain it. Read [development changes](CHANGELOG-development.md), [audit and plan](docs/AUDIT_AND_PLAN.md), [firmware comparison](docs/COMMAND_COMPARISON.md), and [validation](docs/VALIDATION.md).
+**Officially supported hardware: Marauder V8 / ESP32-C5 only.** Some other
+Marauder and ESP hardware could possibly work over serial, but it is untested
+and unsupported. No compatibility or flashing support is promised for it.
 
-![Workspace GUI](docs/screenshots/workspace-0.4.2b.png)
+For Specter-specific features, use the matching
+[Specter V8 firmware release](https://github.com/Anon0ne/Specter-V8/releases).
+**That firmware is strictly for Marauder V8 hardware, regardless of whether this
+GUI happens to connect to another device.**
 
-_The Workspace interface (illustrative data, device disconnected)._
+This is a testing prerelease. Read [known limitations](docs/PUBLIC_BETA.md),
+including a reported second-start portal DHCP issue. Heatmap is not included.
 
 ## What it does
 
@@ -59,7 +64,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\BUILD_REPRODUCIBLE.ps1
 
 Add `-EnableNPU` to include the optional runtime, or `-PythonExe "C:\path\to\python.exe"` if the Python launcher is unavailable. Models remain separate downloads. The script creates a fresh virtual environment, installs pinned packages, checks dependencies, runs tests and builds the standalone executable. Repeatable inputs do not imply a byte-for-byte identical EXE; packaging metadata and the Windows build host can affect hashes.
 
-Linux source: `bash INSTALL_AND_RUN.sh`, or install requirements.txt in a virtual environment and run marauder_workspace.py. Linux execution has not been tested here.
+Linux source: `bash INSTALL_AND_RUN.sh`, or install requirements.txt in a virtual environment and run marauder_workspace.py. Linux source operation and offline page tests passed; physical USB/radio acceptance remains device-specific.
 
 ## Passive analysis boundary
 

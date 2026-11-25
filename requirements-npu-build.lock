@@ -37,7 +37,7 @@ pyyaml==6.0.3
 reedsolo==1.7.0
 rich==15.0.0
 rich-click==1.9.9
-setuptools==84.0.0
+setuptools==84.1.0
 tibs==0.5.7
 tqdm==4.70.1
 truststore==0.10.4

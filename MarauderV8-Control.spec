@@ -2,7 +2,7 @@
 from PyInstaller.utils.hooks import collect_all
 import os
 
-datas = [('portals/default', 'portals/default')]
+datas = [('portals/default', 'portals/default'), ('build/public-licenses', 'third_party_licenses')]
 binaries = []
 hiddenimports = []
 tmp_ret = collect_all('esptool')

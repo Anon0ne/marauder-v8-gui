@@ -19,6 +19,9 @@ if ($LASTEXITCODE -ne 0) { throw 'Pinned dependency installation failed.' }
 if ($LASTEXITCODE -ne 0) { throw 'Dependency verification failed.' }
 & $buildPython -m unittest discover -s tests -v
 if ($LASTEXITCODE -ne 0) { throw 'Regression tests failed; build stopped.' }
+& $buildPython tools/collect_public_licenses.py
+if ($LASTEXITCODE -ne 0) { throw 'Public dependency-notice collection failed' }
+$env:SPECTER_INCLUDE_NPU = if ($EnableNPU) { '1' } else { '0' }
 & $buildPython -m PyInstaller --noconfirm --clean MarauderV8-Control.spec
 if ($LASTEXITCODE -ne 0) { throw 'Standalone build failed.' }
 Get-FileHash -Algorithm SHA256 -LiteralPath 'dist\MarauderV8-Control.exe'

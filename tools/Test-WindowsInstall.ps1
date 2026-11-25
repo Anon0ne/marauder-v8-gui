@@ -22,6 +22,7 @@ function Test-InstalledApp([string]$Root,[string]$Label) {
   if ($process.ExitCode -ne 0 -or !(Test-Path -LiteralPath $report)) { throw "$Label packaged GUI failed, exit $($process.ExitCode)" }
   $result=Get-Content -LiteralPath $report -Raw | ConvertFrom-Json
   if ($result.result -ne 'pass' -or !$result.frozen -or $result.connected -or $result.autoconnect) { throw "$Label packaged GUI verification failed" }
+  if ($result.heatmap_available -ne $false -or $result.pages.Count -ne 10) { throw 'Expected ten public beta pages and no Heatmap' }
   if ($result.pro_plugin_loaded) { throw 'Public test package unexpectedly includes the private Pro add-on' }
   Write-Host "${Label}: checksums, shortcuts and packaged GUI pages passed."
 }
@@ -30,6 +31,8 @@ $package=Join-Path $TestRoot 'Portable Package'
 New-Item -ItemType Directory -Path $package -Force | Out-Null
 foreach ($file in @('Install-Windows.ps1','INSTALL_WINDOWS.cmd','WINDOWS_INSTALL.txt')) { Copy-Item -LiteralPath (Join-Path $repo $file) -Destination $package }
 Copy-Item -LiteralPath $exe -Destination $package
+Copy-Item -LiteralPath (Join-Path $repo 'build\public-licenses') -Destination (Join-Path $package 'THIRD_PARTY_LICENSES') -Recurse
+Copy-Item -LiteralPath (Join-Path $repo 'LICENSE') -Destination $package
 ("$($expected.ToLower())  MarauderV8-Control.exe") | Set-Content -LiteralPath (Join-Path $package 'SHA256SUMS.txt') -Encoding ascii
 $portable=Join-Path $TestRoot 'Portable Install'
 & (Join-Path $package 'Install-Windows.ps1') -InstallDirectory (Join-Path $portable 'App') -DesktopDirectory (Join-Path $portable 'Desktop') -StartMenuDirectory (Join-Path $portable 'Start Menu')

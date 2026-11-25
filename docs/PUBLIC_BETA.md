@@ -1,30 +1,47 @@
-# Public beta review candidate
+# Specter V8 public beta
 
-Status: **review-only; not approved for public distribution**. Repository visibility
-has not been changed. No device was flashed for this review.
+Status: **public testing prerelease**, published at the maintainer's request.
+This is not a stable release or a claim that all features have hardware coverage.
+
+**Firmware hardware restriction:** Specter firmware is only for the Marauder V8
+with its ESP32-C5, V8 TFT/touch wiring, PSRAM and 8 MB partition layout. Do not
+flash it onto another Marauder revision, ESP development board, CYD, S3 or other
+hardware, even if the chip family looks similar.
+
+**GUI support policy:** Marauder V8 is the only officially supported device.
+Some other Marauder or ESP hardware may partially work over serial, but this is
+untested, unsupported and not a compatibility promise. Device commands, response
+formats, capabilities and flash layouts may differ. Possible GUI connectivity
+never makes the V8 firmware safe for another board.
 
 ## Scope
 
-Marauder V8 / ESP32-C5 only, V8 TFT/touch setup, PSRAM and the 8 MB partition
-layout. The companion GUI excludes Heatmap, Premium navigation/upgrade screens
-and private Pro plugin loading. Heatmap remains a separate premium membership
-purchased directly from Anon0ne; the README describes that availability.
-MITM experiments and the proposed portal credential-validation patch are absent.
-No private license server, signing keys or Pro implementation belongs in this kit.
+The public beta excludes Heatmap, Premium navigation/upgrade screens and private
+Pro plugin loading. Heatmap is available only through premium membership
+purchased directly from [Anon0ne](https://github.com/Anon0ne). Contact Anon0ne
+for pricing and access. No licensing server or premium implementation is bundled.
+MITM feasibility experiments and the proposed portal input-validation pack are
+not included.
 
-## Release gates
+## Known limitations and validation coverage
 
-- [ ] Owner reviews the private release-readiness audit and approves distribution.
-- [ ] Second-start client DHCP is verified on hardware, without rebooting the V8.
-- [ ] Repeated start/stop cycles show no unexplained internal-heap loss.
-- [ ] Exact candidate Windows executable passes frozen/install checks on Windows.
-- [ ] Combined candidate firmware and GUI pass a physical Windows COM-port test.
-- [ ] Dependency/source provenance and binary-distribution notices are reviewed.
-- [ ] Owner decides the treatment of historic third-party token-like data before
-      publishing a repository with its complete history.
-- [ ] Documented SD submission logging behavior and handling of private test data
-      are approved for the intended beta scope. No real submitted values should
-      be attached to issues or included in public artifacts.
+- **Portal client DHCP can fail on a later start.** HTTP listener restart checks
+  do not establish that a client receives an IP. No DHCP repair is claimed.
+  Restart the device if needed and report the cycle/client/console symptoms.
+- Repeated operation cycles still require memory and on-device acceptance tests.
+- A serial-open reset occurred with the tested USB adapter; reconnecting may
+  clear an in-progress operation.
+- Source tests and frozen Windows install/page checks are offline checks, not
+  a physical Windows USB/COM or radio test of every operation.
+- Optional AI/NPU and cloud integrations remain experimental; cloud requests
+  are not hardware-tested and provider availability is outside this project.
+- Existing portal submission logging can write entered values to SD. Use a
+  static connectivity page for initial acceptance. Never upload private
+  submissions, captures, tokens or licensing files with issues.
+
+The clean public firmware snapshot omits legacy PCB assets and private Git
+history. Library notices are retained in `docs/third-party`; original source
+copyrights are preserved. This is not a legal or security certification.
 
 ## Hardware acceptance using the harmless connectivity page
 
@@ -62,5 +79,5 @@ new validation or suppress that existing behavior. Optional cloud AI sends
 operator-provided context to its selected provider; prefer offline tools for
 private data. No live secrets or captures are supplied as test fixtures.
 
-The security contact is listed in SECURITY.md. This document records gates and
-limits; it is not a declaration that all modules are hardware-validated.
+The security contact is listed in SECURITY.md. This document records known limits and
+test coverage; it is not a declaration that all modules are hardware-validated.
