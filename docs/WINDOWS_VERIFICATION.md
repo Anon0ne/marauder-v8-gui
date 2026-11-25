@@ -14,14 +14,14 @@ the prebuilt package. Installation targets the current user's Programs folder.
 2. Execute `Build-And-Install-Windows.ps1` with the known Python executable,
    producing and installing the actual EXE into a directory with spaces.
 3. Verify the installed file's SHA-256 and both shortcut targets/working directories.
-4. Launch the installed, frozen EXE in offline smoke-test mode. Verify all eleven
+4. Launch the installed, frozen EXE in offline smoke-test mode. Verify all ten
    GUI pages, Specter catalog forms, esptool/serial imports and bundled assets.
 5. Assemble the prebuilt package and install it using `Install-Windows.ps1`.
 6. Repeat installed-file, shortcut and frozen EXE checks for that package.
 
 The ZIP includes `SHA256SUMS.txt` and JSON reports under `verification/`.
 Both reports must have `result: pass`, `frozen: true`, `connected: false`,
-`autoconnect: false` and eleven opened pages. The smoke test never starts a
+`autoconnect: false` and ten opened pages. The smoke test never starts a
 radio job, portal, script or network exercise. Heatmap shows the normal locked
 page when the separately licensed Pro add-on is absent; it is not bundled in
 the public artifact. Existing entitlement checks are unchanged.

@@ -2475,9 +2475,9 @@ class MarauderGUI(tk.Tk):
         pad = dict(padx=16)
 
         ttk.Label(win, text="Firmware updater", style="Title.TLabel").pack(anchor="w", pady=(16, 2), **pad)
-        ttk.Label(win, text="Flashes the official Marauder V8 build (the `_v8` asset, an ESP32-C5 image). "
-                  "The chip is auto-detected, so the architecture can't be set wrong. Keep the device "
-                  "plugged in and do not unplug it while flashing.",
+        ttk.Label(win, text="Specter beta: install a matched kit with its flash_v8.py helper. "
+                  "The online download below is upstream Marauder, not Specter. This dialog "
+                  "updates application images only; it does not install kit support images.",
                   style="CardMuted.TLabel", wraplength=620, justify="left").pack(anchor="w", **pad)
 
         portrow = ttk.Frame(win, style="Card.TFrame")
@@ -2490,7 +2490,7 @@ class MarauderGUI(tk.Tk):
 
         srcrow = ttk.Frame(win, style="Card.TFrame")
         srcrow.pack(fill="x", pady=(10, 4), **pad)
-        ttk.Button(srcrow, text="Fetch + download latest V8 firmware",
+        ttk.Button(srcrow, text="Download upstream Marauder V8 (not Specter)",
                    style="Accent.TButton", command=self._fw_fetch).pack(side="left")
         ttk.Button(srcrow, text="Browse .bin…", command=self._fw_browse).pack(side="left", padx=8)
 
@@ -2653,7 +2653,7 @@ class MarauderGUI(tk.Tk):
         if not messagebox.askyesno(
                 "Flash firmware",
                 f"Write this firmware to the Marauder on {port}?\n\n{os.path.basename(path)}{ver_note}\n\n"
-                "The chip is auto-detected. Do NOT unplug the device while flashing. Continue?"):
+                "The chip must be ESP32-C5. Do NOT unplug the device while flashing. Continue?"):
             return
         self._fw_free_port()
         self._fw_busy = True

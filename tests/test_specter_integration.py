@@ -46,7 +46,8 @@ class SpecterTests(unittest.TestCase):
    app.open_specter();app.open_portal_templates();app.update_idletasks()
    plugin.open_feature.assert_not_called()
    self.assertTrue({'specter','portals'}<=set(app._nav_buttons))
-   self.assertIn('Pro',app.title())
+   self.assertIn('Public Beta',app.title())
+   self.assertNotIn('heatmap',app._nav_buttons)
    fs=Mock();fs.tree.return_value=[SDEntry('/Rians/Owned Template.html',False,20)]
    fs.stat.return_value='F /Rians/Owned Template.html 20 1790000000'
    def download(remote,local):Path(local).write_text('<h1>Owned test</h1>')

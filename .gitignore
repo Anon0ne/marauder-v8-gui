@@ -18,3 +18,20 @@ firmware/*.bin
 .build-venv-*/
 
 .cloud-keys/
+
+# Public beta: keep local secrets and captured data outside source control.
+.env
+.env.*
+*.pem
+*.key
+*.p12
+*.pcap
+*.pcapng
+*.kismet
+*.mitm
+/portal_loot/
+/captures/
+/specter/sessions/
+/dist/
+/marauder_pro/
+/server/

@@ -1,5 +1,6 @@
 # -*- mode: python ; coding: utf-8 -*-
 from PyInstaller.utils.hooks import collect_all
+import os
 
 datas = [('portals/default', 'portals/default')]
 binaries = []
@@ -8,11 +9,7 @@ tmp_ret = collect_all('esptool')
 datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
 
 
-try:
-    import openvino_genai
-except ImportError:
-    pass
-else:
+if os.environ.get('SPECTER_INCLUDE_NPU') == '1':
     for module in ('openvino', 'openvino_genai', 'openvino_tokenizers'):
         extra_datas, extra_binaries, extra_imports = collect_all(module)
         datas += extra_datas
@@ -28,7 +25,7 @@ a = Analysis(
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
-    excludes=[],
+    excludes=['marauder_pro'],
     noarchive=False,
     optimize=0,
 )

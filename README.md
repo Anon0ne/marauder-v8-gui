@@ -79,44 +79,21 @@ Dark Workspace navigation, manual command catalog, Wi-Fi/BLE inventories, RF das
 
 Community resources: [Contributing](CONTRIBUTING.md), [Code of conduct](CODE_OF_CONDUCT.md), [Security](SECURITY.md), [Support](SUPPORT.md).
 
-## Premium
+## Public beta scope
 
-The community edition remains free and open source under MIT. The existing
-**Heatmap** feature ships in a separately licensed Pro add-on. New Specter
-features are grouped here as the **Premium / Pro validation feature set**;
-expanded entitlement lockouts remain deferred until testing is complete. The
-current test branch exposes these controls without a new host license gate.
-Firmware Red/Blue Team and BT+ arm requirements still apply.
+This beta includes the Specter V8 companion pages but excludes Heatmap, the
+Premium navigation/upgrade screen and private Pro plugin loading. The separate
+MarauderGUIPro application and licensing infrastructure remain outside this
+beta. See `docs/PUBLIC_BETA.md` for scope, installation and validation gates.
 
-| Premium feature area | New capabilities and current availability |
-| --- | --- |
-| **Heatmap** | GPS WiFi signal mapping and GeoJSON/KML/HTML reports; existing Pro add-on license checks apply. |
-| **Specter Sessions** | Firmware run start/end/status, session organization and output indexes; the GUI also retains its existing recording/replay tools. |
-| **Guardian and WiFi automation** | Deauth Guardian, exact-SSID Probe to Portal and scoped IoT Recon command forms, with status/stop routing. IoT Recon's post-ARP state check remains a known firmware issue. |
-| **AP actions** | Per-AP Deauth/Clone controls, fresh device AP/BSSID verification and selected-template carryover for clone setup. |
-| **Portal workflow** | Recursive existing SD-template discovery, filters, source viewing/offline preview, explicit template selection, editable setup, acknowledged startup and local submission-log metadata. |
-| **SD and time integration** | CRC-checked file transfers, nested paths with spaces, modified dates, firmware UTC sync and known-date correction commands. The community SD browser remains available. |
-| **BLE discovery and assessment catalog** | Tracker, Phantom, Beacon, Spoofer, Predator, SkeletonKey, WhisperPair, KARR and Skimmer forms; functionality and owned-target validation vary. |
-| **Controls and status** | Specter help/status/session/clock replies, explicit BT+ arming and a global Stop active job action with module-aware stop routing. |
-| **BadBLE keyboard / DuckyScript** | Companion Specter firmware now has touchscreen SD script selection, manual Run, progress and Stop/Back. Manual hello typing is user-confirmed on Android. Dedicated GUI forms are pending; use the raw console and SD browser with matching firmware. SD-script paired-host acceptance is still pending. |
-| **Firmware touchscreen improvements** | Live BLE result screens, retained snapshots, device/GATT inspection, Stop/Back and BLE-to-WiFi memory release. These run on the handheld, not in a new GUI inspector. |
 
-Run the validation build from `specter/pro-integration`:
+## Premium Heatmap membership
 
-```sh
-bash run-pro.sh --no-autoconnect
-```
+Heatmap is not included in the public beta. It is available only with a premium
+membership purchased directly from [Anon0ne](https://github.com/Anon0ne).
+Contact Anon0ne directly for membership details, pricing and access to the
+separate premium edition. No premium code or licensing service is bundled here.
 
-Use a matching Specter firmware build. These forms send firmware commands;
-they do not add radio capabilities to stock firmware. Most active BLE tools
-still need target-device testing. Newer-pack Airoha, dedicated GARMR/auth-flood
-upgrades and future license lockouts are not completed additions here.
-
-[Integration and validation](docs/SPECTER_PRO_INTEGRATION.md) ·
-[Portal workflow](docs/PORTAL_EXERCISE.md) ·
-[AP actions and Stop](docs/AP_CLONE_AND_STOP.md) ·
-[Specter firmware](https://github.com/Anon0ne/Specter/tree/specter/ble-touchscreen) ·
-[BadBLE setup and commands](https://github.com/Anon0ne/Specter/blob/specter/ble-touchscreen/docs/BADBLE_KEYBOARD_TEST.md)
 
 ## Online AI without a GPU
 

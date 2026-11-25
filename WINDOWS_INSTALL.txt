@@ -38,7 +38,7 @@ USB/COM and target-device behavior must be tested on your Windows computer.
 VALIDATION
 Windows CI verifies dependencies, regression tests, source build/install,
 installed file checksums, Desktop/Start Menu shortcut targets, and actual
-frozen EXE startup/opening of eleven GUI pages without a radio connection.
+frozen EXE startup/opening of ten GUI pages without a radio connection.
 It repeats the install/launch checks from the prebuilt package.
 Automatic Python installation on a clean machine and physical USB drivers
 are separate acceptance checks; they are not simulated by those tests.

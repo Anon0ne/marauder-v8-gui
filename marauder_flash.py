@@ -6,7 +6,7 @@ esptool as a library (works both from source and from the bundled .exe, as long
 as esptool is importable), streaming its output to a callback.
 
 Standard ESP32 (Arduino) flash layout is used:
-    0x1000  bootloader   0x8000  partitions   0xE000 boot_app0   0x10000 app
+    0x2000  C5 bootloader   0x8000 partitions   0xE000 boot_app0   0x10000 app
 
 The release .bin on the Marauder repo is the application image (0x10000); that
 alone is a safe *update* for a board that already runs Marauder. A *full* flash
@@ -33,7 +33,7 @@ _NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)  # don't flash a console
 MARAUDER_REPO = "justcallmekoko/ESP32Marauder"
 API_LATEST = f"https://api.github.com/repos/{MARAUDER_REPO}/releases/latest"
 
-OFFSET_BOOTLOADER = 0x1000
+OFFSET_BOOTLOADER = 0x2000
 OFFSET_PARTITIONS = 0x8000
 OFFSET_BOOT_APP0 = 0xE000
 OFFSET_APP = 0x10000
@@ -245,15 +245,17 @@ def flash_args(port: str, app_bin: str, baud: int = 921600, full: bool = False,
                support: dict | None = None, boot_offset: int = OFFSET_BOOTLOADER) -> list:
     """Build esptool write-flash args for an *update* (app only) or *full* flash.
 
-    The chip is intentionally NOT specified — esptool auto-detects it, so the same
-    code is correct for classic ESP32 (Xtensa) and the C-series (RISC-V). Flash
+    This public beta targets the Marauder V8 / ESP32-C5 explicitly. Flash
     mode/freq are left at the image's own header values (esptool default "keep").
 
     Full flash needs `support` mapping 'bootloader'/'partitions'/'boot_app0' to
-    paths, and the right `boot_offset` for the family (0x1000 for esp32/s2/s3,
-    0x0 for the C-series). The app image itself must match the detected chip.
+    paths. The V8 C5 bootloader offset is 0x2000. The app image must match C5.
     """
-    a = ["--port", port, "--baud", str(baud),
+    if full and (not support or any(k not in support for k in ('bootloader', 'partitions', 'boot_app0'))):
+        raise ValueError('Full V8 flashing requires all three support images')
+    if full and boot_offset != OFFSET_BOOTLOADER:
+        raise ValueError('Marauder V8 / ESP32-C5 requires bootloader offset 0x2000')
+    a = ["--chip", "esp32c5", "--port", port, "--baud", str(baud),
          "--before", "default-reset", "--after", "hard-reset",
          "write-flash", "-z", "--flash-size", "detect"]
     if full and support:

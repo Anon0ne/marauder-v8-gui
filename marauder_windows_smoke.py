@@ -29,7 +29,7 @@ def run(app_factory, report_path):
         app.report_callback_exception = lambda *error: callback_errors.append(str(error[1]))
         for name in ('_show_catalog', 'open_specter', 'open_sd_browser', 'open_portal_templates',
                      'open_ble_devices', 'open_dashboard', 'open_survey', 'open_firmware_dialog',
-                     'open_pcap_dialog', 'open_ai_dialog', 'open_heatmap'):
+                     'open_pcap_dialog', 'open_ai_dialog'):
             getattr(app, name)()
             app.update_idletasks()
             app.update()
@@ -40,7 +40,10 @@ def run(app_factory, report_path):
             raise RuntimeError('; '.join(callback_errors))
         result['autoconnect'] = False
         result['connected'] = False
-        result['pro_plugin_loaded'] = app._premium is not None
+        result['pro_plugin_loaded'] = False
+        result['heatmap_available'] = hasattr(app, 'open_heatmap')
+        if result['heatmap_available']:
+            raise RuntimeError('Heatmap must not be included in the public beta')
         result['result'] = 'pass'
     except Exception:
         result['error'] = traceback.format_exc()

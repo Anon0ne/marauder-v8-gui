@@ -38,7 +38,7 @@ class WindowsPackagingTests(unittest.TestCase):
             report = Path(tmp) / 'report.json'
             self.assertEqual(run(WorkspaceGUI, report), 0, report.read_text())
             data = json.loads(report.read_text())
-            self.assertEqual(len(data['pages']), 11)
+            self.assertEqual(len(data['pages']), 10)
             self.assertGreater(data['specter_commands'], 0)
             self.assertFalse(data['connected'])
             self.assertFalse(data['autoconnect'])
