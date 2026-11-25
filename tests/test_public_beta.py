@@ -35,6 +35,17 @@ class PublicBetaTests(unittest.TestCase):
             finally:
                 app._on_close()
 
+    def test_shutdown_cancels_registered_timers(self):
+        from marauder_workspace import WorkspaceGUI
+        try:
+            app = WorkspaceGUI()
+        except tk.TclError as exc:
+            self.skipTest(str(exc))
+        app.withdraw()
+        timer = app.after(10000, lambda: None)
+        app._on_close()
+        self.assertNotIn(timer, app.tk.call('after', 'info'))
+
 
 if __name__ == '__main__':
     unittest.main()

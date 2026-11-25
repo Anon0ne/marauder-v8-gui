@@ -3068,6 +3068,13 @@ class MarauderGUI(tk.Tk):
             if self._record_fp:
                 self._record_fp.close()
         finally:
+            # Cancel tool/reader timers before Tk deletes their registered commands.
+            # Otherwise a later GUI instance can receive stale Tcl callbacks.
+            try:
+                for timer in self.tk.call('after', 'info'):
+                    self.after_cancel(timer)
+            except tk.TclError:
+                pass
             self.destroy()
 
 
