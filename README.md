@@ -92,12 +92,19 @@ MarauderGUIPro application and licensing infrastructure remain outside this
 beta. See `docs/PUBLIC_BETA.md` for scope, installation and validation gates.
 
 
-## Premium Heatmap membership
+## Premium membership
 
-Heatmap is not included in the public beta. It is available only with a premium
-membership purchased directly from [Anon0ne](https://github.com/Anon0ne).
-Contact Anon0ne directly for membership details, pricing and access to the
-separate premium edition. No premium code or licensing service is bundled here.
+The following tools are not included in the public beta and are available only
+with a premium membership:
+
+- **WiFi heatmapping** — maps signal coverage from your captures and exports to
+  WiGLE and Google Earth (KML) for mapping and wardrive analysis.
+- **MITM proxy** — on-path traffic inspection for authorized assessments.
+
+Premium membership is purchased directly from
+[Anon0ne](https://github.com/Anon0ne). Contact Anon0ne directly for membership
+details, pricing and access to the separate premium edition. No premium code or
+licensing service is bundled here.
 
 
 ## Online AI without a GPU
