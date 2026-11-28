@@ -8,6 +8,8 @@ from tkinter import ttk
 
 BT_MODULES = ('tracker','phantom','beacon','spoofer','predator','sk','wp','karr','skimmer')
 
+_AUTH = '  Authorized testing only — targets you own or have written permission to test.'
+
 def starts_job(command):
     words=command.strip().split()
     if words[:1] and words[0] in ('apclone','apdeauth'):return True
@@ -90,6 +92,20 @@ def catalog(P,C):
         C('KARR assessment','karr assess','Existing verdict-only handler; no vehicle control.',[target()]),
         C('KARR signature','karr sig','Add a capture-backed detection signature.',[P('Signature arguments')]),
         C('Skimmer verification','skimmer verify','Heuristic verification, not a confirmed finding.',[target()]),
+      ]),
+      ('BadBLE keyboard (DuckyScript)',[
+        C('Serve keyboard','bb serve','Advertise a BLE HID keyboard named "Specter Keyboard". Pair it on a host you own, then wait for Ready. Requires Red Team mode and an armed BT+ radio.'+_AUTH),
+        C('Keyboard status','bb status','serving / connected / encrypted / subscribed, queued vs sent reports, the selected script and current state.'),
+        C('List SD scripts','bb list','Lists the built-in demo plus /btloot/payloads/*.txt, *.duck and *.ducky on the SD card.'),
+        C('Install SD demo','bb install-demo','Writes /btloot/payloads/hello-specter.txt; never overwrites an existing file.'),
+        C('Hello self-test','bb hello','Selects and runs the harmless built-in demo (types "Hello from Specter").'),
+        C('Validate script','bb validate','Compile-check a script without typing anything on the host.',[P('Script filename',placeholder='myscript.txt')]),
+        C('Run selected script','bb run','Run the already selected/validated script. Pair the host and reach Ready first.'),
+        C('Run script by name','bb run','Select and run a script from /btloot/payloads/.'+_AUTH,[P('Script filename',placeholder='myscript.txt')]),
+        C('Type text','bb type','Type a literal string on the paired host.'+_AUTH,[P('Text',placeholder='Hello world')]),
+        C('Key / combo','bb key','Send one named key or modifier combo, e.g. "GUI r" or "CTRL ALT t".'+_AUTH,[P('Key combo',placeholder='GUI r')]),
+        C('DuckyScript help','bb script','Supported subset: STRING/STRINGLN, DELAY, DEFAULTDELAY, REPEAT, CTRL/SHIFT/ALT/GUI plus one named key. US-ASCII layout; 1024 steps / 32 KiB bound.'),
+        C('Stop keyboard','bb stop','Stop typing, disconnect the host and stop advertising.'),
       ]),
     ])]
 
