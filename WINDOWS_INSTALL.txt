@@ -16,6 +16,17 @@ existing licensed Heatmap functionality remains a separate installation.
 It does not include the large optional Rian template library; SD templates
 remain on the device. The small bundled default asset is included.
 
+SETUP INSTALLER (Setup.exe)
+For a conventional installer - double-click Setup, Next/Next/Finish, with an
+Add/Remove Programs entry and an uninstaller - use:
+  Specter-V8-Control-Setup-<version>.exe
+It installs into Program Files and creates Desktop and Start Menu shortcuts
+(administrator rights are requested for the per-machine install). Uninstall
+from Settings > Apps, or via the Start Menu "Uninstall" shortcut.
+To build this installer from source (needs NSIS - winget install NSIS.NSIS):
+  powershell -ExecutionPolicy Bypass -File Build-And-Install-Windows.ps1 -BuildOnly -MakeInstaller
+Output: dist\Specter-V8-Control-Setup-<version>.exe
+
 BUILD FROM SOURCE
 Use a full source checkout and double-click BUILD_AND_INSTALL.cmd. This
 checks Python 3.10-3.13, installs Python 3.12 if missing (winget or signed

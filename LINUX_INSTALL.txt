@@ -1,6 +1,18 @@
-Marauder V8 Control GUI v0.4.2b - Linux (Python source distribution)
+Marauder V8 Control GUI - Linux
 
-AUTOMATED SETUP AND LAUNCH
+DEB PACKAGE (NO PYTHON REQUIRED, amd64)
+Install the self-contained .deb - it bundles its own Python runtime and
+esptool, so no system Python, pip or venv is needed:
+  sudo apt install ./specter-v8_<version>_amd64.deb
+Then launch it from your application menu ("Specter V8 Control") or run:
+  specter-v8
+Serial access to the device needs your user in the "dialout" group:
+  sudo usermod -aG dialout "$USER"      # then log out and back in
+Remove with:  sudo apt remove specter-v8
+Build the .deb yourself from a source checkout (needs pyinstaller + dpkg-deb):
+  BUILD=1 tools/build_deb.sh            # output: dist/specter-v8_<version>_amd64.deb
+
+AUTOMATED SETUP AND LAUNCH (Python source distribution)
 Extract the Linux ZIP, open a terminal in that folder, and run:
   bash INSTALL_AND_RUN.sh
 The launcher creates an isolated virtual environment and installs dependencies.

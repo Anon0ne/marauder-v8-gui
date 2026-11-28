@@ -1,4 +1,4 @@
-param([switch]$BuildOnly, [switch]$EnableNPU, [string]$PythonExe, [string]$InstallDirectory, [string]$DesktopDirectory, [string]$StartMenuDirectory)
+param([switch]$BuildOnly, [switch]$MakeInstaller, [switch]$EnableNPU, [string]$PythonExe, [string]$InstallDirectory, [string]$DesktopDirectory, [string]$StartMenuDirectory)
 $ErrorActionPreference = 'Stop'
 Set-Location $PSScriptRoot
 function Find-Python {
@@ -94,6 +94,28 @@ if ($LASTEXITCODE -ne 0) { throw 'Windows build failed' }
 $exe=Join-Path $PSScriptRoot 'dist\MarauderV8-Control.exe'
 if (!(Test-Path $exe)) { throw 'Build did not produce executable' }
 Write-Host "Built: $exe"
+
+# Optional: wrap the self-contained EXE into a Setup.exe with makensis (NSIS).
+# Produces dist\Specter-V8-Control-Setup-<version>.exe (Start Menu + Desktop
+# shortcuts, Add/Remove Programs entry, uninstaller).
+if ($MakeInstaller) {
+  $makensis = Get-Command makensis.exe -ErrorAction SilentlyContinue
+  if (!$makensis) {
+    $guess = Join-Path ${env:ProgramFiles(x86)} 'NSIS\makensis.exe'
+    if (Test-Path $guess) { $makensis = [pscustomobject]@{ Source = $guess } }
+  }
+  if (!$makensis) { throw 'makensis.exe (NSIS) not found. Install NSIS, e.g.: winget install NSIS.NSIS' }
+  $verMatch = Select-String -Path (Join-Path $PSScriptRoot 'marauder_gui.py') -Pattern '__version__\s*=\s*["'']([^"'']+)' | Select-Object -First 1
+  if (!$verMatch) { throw 'Could not read __version__ from marauder_gui.py' }
+  $version = $verMatch.Matches[0].Groups[1].Value
+  $nsi = Join-Path $PSScriptRoot 'packaging\windows\specter-v8.nsi'
+  & $makensis.Source "/DVERSION=$version" "/DSRCEXE=$exe" $nsi
+  if ($LASTEXITCODE -ne 0) { throw 'NSIS installer build failed' }
+  $setup = Join-Path $PSScriptRoot "dist\Specter-V8-Control-Setup-$version.exe"
+  if (!(Test-Path $setup)) { throw 'NSIS did not produce the Setup executable' }
+  Write-Host "Built installer: $setup"
+}
+
 if ($BuildOnly) { exit 0 }
 $installArgs=@{ExecutablePath=$exe}
 if ($InstallDirectory) { $installArgs.InstallDirectory=$InstallDirectory }

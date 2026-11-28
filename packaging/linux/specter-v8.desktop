@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=Specter V8 Control
+GenericName=Marauder V8 WiFi/BLE Control
+Comment=Desktop control app for Specter / Marauder V8 (ESP32-C5) WiFi & BLE firmware
+Exec=specter-v8
+Icon=specter-v8
+Terminal=false
+Categories=Utility;Network;
+Keywords=marauder;specter;esp32;wifi;ble;bluetooth;portal;flash;
+StartupNotify=true
